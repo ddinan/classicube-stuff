@@ -11,6 +11,7 @@ using MCGalaxy.Events.PlayerEvents;
 
 namespace MCGalaxy {
     public class AntiVPN : Plugin_Simple {
+		public static PlayerList whitelist;
         public override string creator { get { return "VenkSociety"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "AntiVPN"; } }
@@ -19,6 +20,7 @@ namespace MCGalaxy {
         static readonly object ipLock = new object();
 		
         public override void Load(bool startup) {
+			whitelist = PlayerList.Load("extra/vpnwhitelist.txt");
             OnPlayerConnectEvent.Register(HandlePlayerConnect, Priority.Low);
         }
 		
@@ -26,7 +28,8 @@ namespace MCGalaxy {
             OnPlayerConnectEvent.Unregister(HandlePlayerConnect);
         }
 		      
-        void HandlePlayerConnect(Player p) {	
+        void HandlePlayerConnect(Player p) {
+	    	if (AntiVPN.whitelist.Contains(p.truename)) return;
             byte state = 0;
 
             lock (ipLock) {
