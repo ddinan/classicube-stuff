@@ -16,7 +16,6 @@ namespace MCGalaxy.Commands.CPE {
             string[] args = message.SplitSpaces(2);
             
             if (args[0].Length > 0) {
-                
                 if (args[0] == "level" || args[0] == "global") {
                     if (args[0] == "level")  {
                         if (args[1].Length > 0) {
@@ -25,9 +24,7 @@ namespace MCGalaxy.Commands.CPE {
                                 if (pl.level != p.level) continue;            
                                 pl.SendCpeMessage(CpeMessageType.Announcement, args[1]);
                             }
-                        } else {
-                            Help(p);
-                        }
+                        } else { Help(p); }
                     }
 
                     else if (args[0] == "global") {
@@ -38,18 +35,16 @@ namespace MCGalaxy.Commands.CPE {
                             }
                         }
                         
-                        else {
-                            Help(p);
-                        }
+                        else { Help(p); }
                     }
                 }
                 
                 else {
                     p.SendCpeMessage(CpeMessageType.Announcement, message);
-                } else {
-                    Help(p);
                 }
             }
+            
+            else { Help(p); }
         }
  
         public override void Help(Player p) {
