@@ -1,4 +1,8 @@
-public sealed class CmdAnnounce : Command2 {
+using System;
+using MCGalaxy;
+
+namespace MCGalaxy.Commands.CPE {
+    public sealed class CmdAnnounce : Command2 {
         public override string name { get { return "Announce"; } }
         public override string shortcut { get { return "ann"; } }
         public override string type { get { return "other"; } }
@@ -42,9 +46,9 @@ public sealed class CmdAnnounce : Command2 {
                 
                 else {
                     p.SendCpeMessage(CpeMessageType.Announcement, message);
+                } else {
+                    Help(p);
                 }
-            } else {
-                Help(p);
             }
         }
  
@@ -54,3 +58,4 @@ public sealed class CmdAnnounce : Command2 {
             Player.Message(p, "%T/Announce global [message] %H- Displays a message on players' screens globally.");
         }
     }
+}
