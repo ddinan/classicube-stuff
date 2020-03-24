@@ -16,7 +16,7 @@ using BlockID = System.UInt16;
 namespace MCGalaxy {
     public class PvP : Plugin_Simple {
 		public override string name { get { return "PvP"; } }
-		public override string MCGalaxy_Version { get { return "1.9.1.5"; } }
+		public override string MCGalaxy_Version { get { return "1.9.1.9"; } }
 		public override string creator { get { return "Venk and Sirvoid"; } }
 		
 		/* Settings */
@@ -665,8 +665,8 @@ namespace MCGalaxy {
 		}
 		
 		static void PushPlayer(Player p, Player pl) {
-            int srcHeight = ModelInfo.CalcEyeHeight(p.Model);
-            int dstHeight = ModelInfo.CalcEyeHeight(pl.Model);
+            int srcHeight = ModelInfo.CalcEyeHeight(p);
+            int dstHeight = ModelInfo.CalcEyeHeight(pl);
             int dx = p.Pos.X - pl.Pos.X, dy = (p.Pos.Y + srcHeight) - (pl.Pos.Y + dstHeight), dz = p.Pos.Z - pl.Pos.Z;
             Vec3F32 dir = new Vec3F32(dx, dy, dz);
             dir = Vec3F32.Normalise(dir);
