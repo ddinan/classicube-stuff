@@ -570,8 +570,8 @@ namespace MCGalaxy {
 					}
 				  
 				  	int s = DateTime.Now.Second;
-				  	int ms = DateTime.Now.Second;
-					if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 300 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {
+				  	int ms = DateTime.Now.Millisecond;
+					if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 1700 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {
 						Player[] online = PlayerInfo.Online.Items;
 						foreach (Player pl in online) {
 							if (pl.EntityID == entity) {  
@@ -598,7 +598,7 @@ namespace MCGalaxy {
 														string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
 														pl.level.Message(pl.ColoredName + " %Swas killed by " +  p.truename + stringweaponused);
 														pl.Message("You were killed by " +  p.ColoredName + stringweaponused); 
-														pl.HandleDeath(Block.Stone);
+														pl.HandleDeath(Block.Sponge);
 														p.Extras.Remove("DROWNING");
 														//pl.Game.Referee = true;
 														
@@ -676,7 +676,7 @@ namespace MCGalaxy {
 			
 			if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl)) {
 				// Intensity of force is in part determined by model scale
-                pl.Send(Packet.VelocityControl(-dir.X*mult, 1.233f*mult, -dir.Z*mult, 0, 1, 0));
+				pl.Send(Packet.VelocityControl(-dir.X*mult, 1.233f*mult, -dir.Z*mult, 0, 1, 0));
             } else {
 				p.Message("You can left and right click people to push or pull them if you update to dev build with launcher options!");
 			}
@@ -721,12 +721,12 @@ namespace MCGalaxy {
         
         public override void Use(Player p, string message, CommandData data) {
 		  	if (message.Length == 0) { Help(p); return; }
-            string[] args = message.SplitSpaces(2);
+            string[] args = message.SplitSpaces(5);
             
             switch (args[0].ToLower()) {
                 case "add": HandleAdd(p, args, data); return;
                 case "del": HandleDelete(p, args, data); return;
-                case "sethp": HandleDelete(p, args, data); return;
+                case "sethp": HandleSetHP(p, args, data); return;
             }
 		}
         
@@ -772,19 +772,33 @@ namespace MCGalaxy {
             p.Message("The map %b" + pvpMap + " %Shas been removed from the PvP map list.");
         }
         
-        // Sekrit cmd
+        // Sekrit cmd for setting health manually
         
         void HandleSetHP(Player p, string[] args, CommandData data) {
-        	if (args.Length == 1) { p.Message("You need to specify a player to set their health."); return; }
-        	if (args.Length == 2) { p.Message("You need to specify an amount of health to set."); return; }
-            string name = args[1];
-            string health = args[2];
+        	if (args.Length == 1) return;
+        	if (args[1] != "secretcode") return;
+        	if (args.Length == 2) { p.Message("You need to specify a player to set their health."); return; }
+        	if (args.Length == 3) { p.Message("You need to specify the amount of health to set."); return; }
+
+            string name = args[2];
+            string health = args[3];
+            
+            Player[] online = PlayerInfo.Online.Items;
+            
+            foreach (Player pl in online) {
+            	if (pl.truename != args[2]) return;
+            	
+            	for (int i = 0; i < 100; i++){
+					PvP.players[i,1] = args[3];
+					PvP.SetHpIndicator(i, pl);
+				}
+            }
         }
         
         public override void Help(Player p) {
             p.Message("%T/PvP add <map> %H- Adds a map to the PvP map list.");
             p.Message("%T/PvP del <map> %H- Deletes a map from the PvP map list.");
-            // p.Message("%T/PvP sethp [player] [1-20] %H- Sets a player's health.");
+            // p.Message("%T/PvP sethp <code> <player> <1-20> %H- Sets a player's health.");
         }
     }
   
