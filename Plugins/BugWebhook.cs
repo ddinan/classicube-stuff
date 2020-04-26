@@ -2,7 +2,7 @@ reference System.Net.dll
 reference System.dll
 reference Newtonsoft.Json.dll
 
-// You will need to put your channel's webhook URL in line 31
+// You will need to put your channel's webhook URL in line 32
 
 using System;
 using System.IO;
