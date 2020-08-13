@@ -1,0 +1,6 @@
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\obj\Debug\Tpa.csprojResolveAssemblyReference.cache
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\bin\Debug\TPA.dll
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\bin\Debug\TPA.pdb
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\bin\Debug\ServiceStack.Text.dll
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\obj\Debug\TPA.dll
+C:\Users\dzdez\Downloads\Tpa-master\Tpa-master\Tpa\Tpa\obj\Debug\TPA.pdb
