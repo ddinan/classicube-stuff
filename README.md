@@ -7,6 +7,8 @@ Here you will find the source of my public plugins and commands, free to use how
 | Name | Description |
 | ------------- | -----|
 |  **AntiVPN** | Doesn't let people with a VPN join the server.
+|  **BetterPing** | Makes your ping significantly lower.
+|  **BugWebhook** | Send a message on Discord whenever there's an error on your server.
 |  **Compass** | Adds a compass into your HUD.
 |  **CustomChat*** | Allows changing the chat format.
 |  **CustomSoftware** | Allows changing the software name both in-game and in the launcher.
@@ -14,10 +16,12 @@ Here you will find the source of my public plugins and commands, free to use how
 |  **DailyBonus** | Give people money once per day when they login.
 |  **Example** | Example source code in case you want to make your own plugins.
 |  **Flood*** | Allows client-side water flooding.
+|  **GamemodeTemplate** | The template I use on my servers.
 |  **LastLocation*** | Return to your last known location.
 |  **Nametags*** | Changes your nametag.
 |  **Parties** | Join and talk with specific people.
 |  **PvP** | Click on players to do damage and knock them back.
+|  **XP** | Adds an XP and leveling system.
 
 `*` means that the plugin is private or made exclusive for specific people.
 
@@ -26,6 +30,7 @@ Here you will find the source of my public plugins and commands, free to use how
 | ------------- | -----|
 |  **/Announce** | Show custom text in the middle of peoples' screen.
 |  **/FakeGive** | Tell people they've gotten money but they haven't.
+|  **/Preset** | Easier access for /os env preset that doesn't require realm ownership to use.
 |  **/Remove** | Removes a player from the playerbase permanently.
 |  **/ImportSchematic** | Imports a .schematic file from Minecraft into CC.
 
