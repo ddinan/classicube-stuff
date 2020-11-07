@@ -38,7 +38,7 @@ namespace MCGalaxy {
         }
 		
 		static void DisplayFavouriteMap(Player p, string who) {
-			List<string[]> mRows = Database.GetRows("FavouriteMaps", "Name, Map", "WHERE Name=@0", p.truename);
+			List<string[]> mRows = Database.GetRows("FavouriteMaps", "Name, Map", "WHERE Name=@0", who);
 			if (mRows.Count == 0) return;
 			string FavouriteMap = mRows[0][1];
 			//string gold = Awards.HasAllAwards(who) ? "&6" : "%S";
