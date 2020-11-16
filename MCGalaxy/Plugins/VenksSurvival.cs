@@ -54,7 +54,7 @@ namespace MCGalaxy {
 		
 		// Settings
 		public static string MaxHp = "20"; // Max players HP (10*2)
-		bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
+		public static bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
 		// For instance in Murder Mystery, I don't want regulars to be able to PvP
 		// but I do want killers/detectives to be able to
 		bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
@@ -483,7 +483,7 @@ namespace MCGalaxy {
             		if (Hacks.CanUseFly(p)) { return; }
             		
             		ushort x = (ushort) (p.Pos.X / 32);
-					ushort y = (ushort) ((p.Pos.Y - Entities.CharacterHeight) / 32);
+					//ushort y = (ushort) ((p.Pos.Y - Entities.CharacterHeight) / 32);
 					ushort y2 = (ushort) (((p.Pos.Y - Entities.CharacterHeight) / 32) - 1);
 					ushort z = (ushort) (p.Pos.Z / 32);
 					
@@ -501,8 +501,8 @@ namespace MCGalaxy {
 						else {
 							int damage = fallDamage(fallBlocks(fallTime)) - 6;
             				p.Extras.Remove("FALLING");
-            				//p.Message("%eYou fell for %b{0} %ewhich is %b{1} blocks %eand %b{2} hearts", fallTime.ToString(),
-            				          //fallBlocks(fallTime).ToString(), damage.ToString());
+            				p.Message("%eYou fell for %b{0} %ewhich is %b{1} blocks %eand %b{2} hearts", fallTime.ToString(),
+            				          fallBlocks(fallTime).ToString(), damage.ToString());
             				p.Extras.Remove("FALLTIME");
             				
             			}
@@ -750,6 +750,9 @@ namespace MCGalaxy {
 				int ms = DateTime.Now.Millisecond;
 				if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {				
 					if (button == MouseButton.Left) {
+						// Check if they can kill players, as determined by gamemode plugins
+						bool canKill = PvP.gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+						if (!canKill) return false;
                     	PushPlayer(p, pl);
 					} return true;
 				}
