@@ -1,7 +1,40 @@
-// PvP Plugin created by Venk and Sirvoid
+﻿/* 
+  PvP Plugin created by Venk and Sirvoid.
+  
+  PLEASE NOTE:
+  1. PING MAY AFFECT PVP.
+  2. FALL DAMAGE IS A HUGE WIP, USE AT OWN RISK.
+  3. THE CODE (╫) IS USED FOR THE HALF-HEART EMOJI, YOU MAY NEED TO CHANGE THIS.
+  
+  TO SET UP PVP:
+  1. Put this file in your plugins folder.
+  2. Type /pcompile PvP.
+  3. Type /pload PvP.
+  4. Type /pvp add [name of map].
+  
+  IF YOU WANT WEAPONS (DO THIS FOR EACH WEAPON):
+  1. Type /weapon add [id] [damage] [durability].
+  
+  IF YOU WANT TOOLS (DO THIS FOR EACH TOOL):
+  1. Type /tool add [id] [speed] [durability] [type].
+  
+  IF YOU WANT MINEABLE BLOCKS (DO THIS FOR EACH BLOCK):
+  1. Type /block add [id] [type] [durability].
+  2. Add "mining=true" to the map's MOTD. (/map motd mining=true)
+  
+  TODO:
+  1. Can still hit twice occasionally... let's disguise it as a critical hit for now?
+  3. Health regen?
+  4. Potions (already in my MMO).
+  5. Mobs.
+  6. Hunger?
+  7. Sprinting?
+  
+ */
 
 using System;
 using System.Collections.Generic;
+
 using MCGalaxy;
 using MCGalaxy.Commands;
 using MCGalaxy.Events;
@@ -16,27 +49,35 @@ using BlockID = System.UInt16;
 namespace MCGalaxy {
     public class PvP : Plugin_Simple {
 		public override string name { get { return "PvP"; } }
-		public override string MCGalaxy_Version { get { return "1.9.1.9"; } }
+		public override string MCGalaxy_Version { get { return "1.9.1.5"; } }
 		public override string creator { get { return "Venk and Sirvoid"; } }
 		
-		/* Settings */
+		// Settings
 		public static string MaxHp = "20"; // Max players HP (10*2)
+		bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
+		// For instance in Murder Mystery, I don't want regulars to be able to PvP
+		// but I do want killers/detectives to be able to
 		bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
+		bool blockMining = true; // Enable (true) or disable (false) mining blocks (only works with deletable off!)
 		bool economy = false; // Enable (true) or disable (false) rewards when killing someone
 		int moneyStolen = 0; // If economy = true, money stolen when you kill someone
-		string path = "./plugins/PvP/";
+		string path = "./plugins/PvP/"; // Plugin path
 		
 		public static int curpid = -1;
 		public static List<string> maplist = new List<string>();
 		public static string[,] players = new string[100, 3];
 		public static string[,] weapons = new string[255, 3];
+		public static string[,] tools = new string[255, 4];
+		public static string[,] blocks = new string[255, 3];
 		
 		public override void Load(bool startup) {
-		  	// Load items
 			loadMaps();
 			loadWeapons();
+			loadTools();
+			loadBlocks();
 		  
-			OnPlayerClickEvent.Register(HandleClick, Priority.Low);
+			OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
+			OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
 		    OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
 		    Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1)); // 1*10
 		    //Server.MainScheduler.QueueRepeat(HandleFall, null, TimeSpan.FromMilliseconds(1)); 
@@ -44,6 +85,8 @@ namespace MCGalaxy {
 		  	Command.Register(new CmdPvP());
 		  	Command.Register(new CmdSafeZone());
 		  	Command.Register(new CmdWeapon());
+		  	Command.Register(new CmdTool());
+		  	Command.Register(new CmdBlock());
 			
 			Player[] online = PlayerInfo.Online.Items;
 			foreach (Player p in online) {
@@ -61,15 +104,30 @@ namespace MCGalaxy {
 		}
                         
 		public override void Unload(bool shutdown) {
-            OnPlayerClickEvent.Unregister(HandleClick);
+            OnPlayerClickEvent.Unregister(HandlePlayerClick);
+            OnPlayerClickEvent.Unregister(HandleBlockClick);
 		    OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
 
 			Command.Unregister(Command.Find("PvP"));
 			Command.Unregister(Command.Find("SafeZone"));
 			Command.Unregister(Command.Find("Weapon"));
+			Command.Unregister(Command.Find("Tool"));
+			Command.Unregister(Command.Find("Block"));
 		}
 		
-		// Drowning
+				
+		void loadMaps() {
+			if (System.IO.File.Exists(path + "maps.txt")) {
+				using (var maplistreader = new System.IO.StreamReader(path + "maps.txt")) {
+					string line;
+					while ((line = maplistreader.ReadLine()) != null) {
+					   maplist.Add(line);
+					}
+				}
+			}
+		}
+		
+		#region Drowning
 		
 		void HandleDrown(SchedulerTask task) {
 			if (survivalDeath == false) { return; }
@@ -358,8 +416,10 @@ namespace MCGalaxy {
             }
         }
 		
-		// Fall damage WIP
-		// TODO: Calculations are inaccurate and server can affect time
+		#endregion
+		
+		#region Fall damage WIP
+		// TODO: Calculations are inaccurate and server can affect measurements. Use at own risk!
 		
 		int fallBlocks(int fallTime) {
 			int ft = fallTime;
@@ -458,85 +518,95 @@ namespace MCGalaxy {
             }
 		}
 		
-		// PvP
-        
-		public static void SetHpIndicator(int i, Player pl) {
-			int a = int.Parse(players[i,1]);
-			
-			if (a == 20) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥♥"); }
-			if (a == 19) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥╫"); }
-			if (a == 18) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥%0♥"); }
-			if (a == 17) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥╫%0♥"); }
-			if (a == 16) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥%0♥♥"); }
-			if (a == 15) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥╫%0♥♥"); }
-			if (a == 14) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥%0♥♥♥"); }
-			if (a == 13) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥╫%0♥♥♥"); }
-			if (a == 12) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥%0♥♥♥♥"); }
-			if (a == 11) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥╫%0♥♥♥♥"); }
-			if (a == 10) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥%0♥♥♥♥♥"); }
-			if (a == 9) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥╫%0♥♥♥♥♥"); }
-			if (a == 8) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥%0♥♥♥♥♥♥"); }
-			if (a == 7) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥╫%0♥♥♥♥♥♥"); }
-			if (a == 6) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥%0♥♥♥♥♥♥♥"); }
-			if (a == 5) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥╫%0♥♥♥♥♥♥♥"); }
-			if (a == 4) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥%0♥♥♥♥♥♥♥♥"); }
-			if (a == 3) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥╫%0♥♥♥♥♥♥♥♥"); }
-			if (a == 2) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥%0♥♥♥♥♥♥♥♥♥"); }
-			if (a == 1) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f╫%0♥♥♥♥♥♥♥♥♥"); }
-			if (a == 0) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%0♥♥♥♥♥♥♥♥♥♥"); }
-		}
+		#endregion
 		
-		void loadMaps() {
-			if (System.IO.File.Exists(path + "maps.txt")) {
-				using (var maplistreader = new System.IO.StreamReader(path + "maps.txt")) {
-					string line;
-					while ((line = maplistreader.ReadLine()) != null) {
-					   maplist.Add(line);
+		#region Mining blocks
+		
+		void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
+			if (button == MouseButton.Left) {
+				if (maplist.Contains(p.level.name)) {
+				  	if (!blockMining) return;
+				  	
+				  	// Get MOTD of map
+				  	LevelConfig cfg = LevelInfo.GetConfig(p.level.name, out p.level); 		
+				  	if (!cfg.MOTD.ToLower().Contains("mining=true")) return;
+				  	if (p.invincible) return;
+				  	
+					if (p.Extras.GetInt("HOLDING_TIME") == 0) {
+						p.Extras["MINING_COORDS"] = x + "_" + y + "_" + z;
 					}
-				}
-			}
-		}
-		
-		bool hasWeapon(string world, Player p, string item) {
-		    string filepath = path + "weapons/" + world + "/" + p.truename + ".txt";
-			if (System.IO.File.Exists(filepath)) {
-				using (var r = new System.IO.StreamReader(filepath)) {
-					string line;
-					while ((line = r.ReadLine()) != null) {
-						if (line == item) return true;
-					}
-				}
-			}
-			return false;
-		}
-		
-		string getWeaponStats(string item) {
-			for (int i = 0; i < 255; i++) {
-				if (weapons[i,0] == item) {
-					return weapons[i,0] + " " + weapons[i,1] + " " + weapons[i,2];
-				}
-			}
-			return "0 1 0";
-		}
-		
-		void loadWeapons() {
-			if (System.IO.File.Exists(path + "weapons.txt")) {
-				using (var r = new System.IO.StreamReader(path + "weapons.txt")) {
-					string line;
-					while ((line = r.ReadLine()) != null) {
-						string[] weaponstats = line.Split(';');
-						for (int i = 0; i < 255; i++) {
-							if (weapons[i,0] == null){
-								weapons[i,0] = weaponstats[0];
-								weapons[i,1] = weaponstats[1];
-								weapons[i,2] = weaponstats[2];								
-								break;
-							}
+					
+					if (action == MouseAction.Pressed) {
+						string coords = p.Extras.GetString("MINING_COORDS");
+						if (coords != (x + "_" + y + "_" + z)) {
+							p.Extras["HOLDING_TIME"] = 0;
+					    	p.Extras["MINING_COORDS"] = 0;
+					    	return;
 						}
-					}
+					    int heldFor = p.Extras.GetInt("HOLDING_TIME");
+					    
+					    // The client's click speed is ~4 times/second
+					    TimeSpan duration = TimeSpan.FromSeconds(heldFor / 4.0);
+					    
+					    BlockID clickedBlock = p.level.GetBlock(x, y, z);
+					    if (clickedBlock == 255) return;
+					    BlockID b = p.GetHeldBlock();
+
+					    string[] blockstats = getBlockStats((byte)clickedBlock + "").Split(' ');
+					    //p.Message(blockstats[2]);
+					    string[] toolstats = getToolStats((byte)b + "").Split(' ');
+					    
+					    //p.Message("block type: " + blockstats[1] + ", hard: " + blockstats[2] + ", id: " +  clickedBlock);
+					    //p.Message("tool type: " + toolstats[3] + ", hard: " + toolstats[2] + ", speed %b" + toolstats[1] + "%S, id: " +  toolstats[0]);
+					    
+					    // Check if block type and tool type go together
+					    // Assign speed of tool based on tool type
+					    // Get block durability, times by 125 then divide by the speed of the tool
+					    if (blockstats[2] == "0") {
+					    	p.level.UpdateBlock(p, x, y, z, Block.Air);
+					    	return;
+					    }
+					    
+					    if (toolstats[2] == "0") {
+						    int toolSpeed = 1;
+						    int blockSpeed = Int32.Parse(blockstats[2]);
+						    int speed = (blockSpeed * 125) / toolSpeed;
+						    //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
+						    
+						    if (duration > TimeSpan.FromMilliseconds(speed)) { // 125ms per hit, leaves takes 2 hits so 250ms to break
+						        p.level.UpdateBlock(p, x, y, z, Block.Air);
+						        p.Extras["HOLDING_TIME"] = 0;
+						    	p.Extras["MINING_COORDS"] = 0;
+						    	return;
+						    }
+						    p.Extras["HOLDING_TIME"] = heldFor + 1;
+					    }
+					    
+					    else {
+						    int toolSpeed = Int32.Parse(toolstats[2]);
+						    int blockSpeed = Int32.Parse(blockstats[2]);
+						    int speed = (blockSpeed * 125) / toolSpeed;
+						    //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
+						    
+						    if (duration > TimeSpan.FromMilliseconds(speed)) { // 125ms per hit, leaves takes 2 hits so 250ms to break
+						        p.level.UpdateBlock(p, x, y, z, Block.Air);
+						        p.Extras["HOLDING_TIME"] = 0;
+						    	p.Extras["MINING_COORDS"] = 0;
+						    	return;
+						    }
+						    p.Extras["HOLDING_TIME"] = heldFor + 1;
+					    }
+					} else if (action == MouseAction.Released) { 
+					    p.Extras["HOLDING_TIME"] = 0;
+					    p.Extras["MINING_COORDS"] = 0;
+					} 
 				}
 			}
 		}
+		
+		#endregion
+		
+		#region PvP
 		
 		bool inSafeZone(Player p, string map) {
 			if (System.IO.File.Exists(path + "safezones" + map + ".txt")) {
@@ -559,107 +629,130 @@ namespace MCGalaxy {
 			} return false;
 		}
 		
-		void HandleClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
+		void HandlePlayerClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
 			if (button == MouseButton.Left) {
 				if (maplist.Contains(p.level.name)) {
-					curpid = -1;
-					for (int yi = 0; yi < 100; yi++) {
-						if (players[yi,0] == p.name) {
-							curpid = yi;
+					if (action != MouseAction.Pressed) return; 
+					if (entity != Entities.SelfID && !ClickOnPlayer(p, entity, button)) return;
+					
+					int placeholder = 1;
+					if (placeholder == 1) {
+						#region PvP code
+						curpid = -1;
+						for (int yi = 0; yi < 100; yi++) {
+							if (players[yi,0] == p.name) {
+								curpid = yi;
+							}
 						}
-					}
-				  
-				  	int s = DateTime.Now.Second;
-				  	int ms = DateTime.Now.Millisecond;
-					if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 1700 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {
-						Player[] online = PlayerInfo.Online.Items;
-						foreach (Player pl in online) {
-							if (pl.EntityID == entity) {  
-								for (int i = 0; i < 100; i++) {
-									if (players[i,0] == pl.name) {
-										if (i < 100) {
-											if (pl.invincible) return;
-											if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name)) { // If both not in a safezone
-												if (p.Game.Referee) return;
-												if (pl.Game.Referee) return;
-												int a = int.Parse(players[i,1]);
-														
-												BlockID b = p.GetHeldBlock();
-												string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-												// p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
-														
-												if (hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0") {
-													players[i,1] = (a - 1) + "";	
-													p.Message("%cHit, they have {0} HP left", players[i, 1]);
-													PushPlayer(p, pl);
-													SetHpIndicator(i, pl);
+					  
+					  	int s = DateTime.Now.Second;
+					  	int ms = DateTime.Now.Millisecond;
+						if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {
+					  		Player[] online = PlayerInfo.Online.Items;
+							foreach (Player pl in online) {
+								if (pl.EntityID == entity) {  
+									for (int i = 0; i < 100; i++) {
+										if (players[i,0] == pl.name) {
+											if (i < 100) {
+												if (pl.invincible) return;
+												// Check if they can kill players, as determined by gamemode plugins
+												bool canKill = gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+												if (!canKill) { p.Message("You cannot kill people."); return; }
+												if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name)) { // If both not in a safezone
+													if (p.Game.Referee) return;
+													if (pl.Game.Referee) return;
+													
+													int a = int.Parse(players[i,1]);
 															
-													if (a <= 1) { // If player killed them
-														string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
-														pl.level.Message(pl.ColoredName + " %Swas killed by " +  p.truename + stringweaponused);
-														pl.Message("You were killed by " +  p.ColoredName + stringweaponused); 
-														pl.HandleDeath(Block.Sponge);
-														p.Extras.Remove("DROWNING");
-														//pl.Game.Referee = true;
-														
-														players[i,1] = MaxHp;
-														
+													BlockID b = p.GetHeldBlock();
+													string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
+													//p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
+															
+													if (hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0") {
+														players[i,1] = (a - 1) + "";	
+														p.Message("%c-1 %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
+														SetHpIndicator(i, pl);
 																
-														pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-																
-														if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1")) {
-															if (pl.money > moneyStolen - 1) {
-																p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-																Player.Message(pl, p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
-																p.SetMoney(p.money + moneyStolen);
-																pl.SetMoney(pl.money - moneyStolen);
-																		
-																MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
-																if (bounty != null) {
-																	ZSGame.Instance.Bounties.Remove(bounty);
-																	Player setter = PlayerInfo.FindExact(bounty.Origin);
-																					
-																	if (setter == null) {
-																		p.Message("Cannot collect the bounty, as the player who set it is offline.");
-																	} else {
-																		p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
-																					bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
-																		p.SetMoney(p.money + bounty.Amount);
+														if (a <= 1) { // If player killed them
+															string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
+															pl.level.Message(pl.ColoredName + " %Swas killed by " +  p.truename + stringweaponused);
+															pl.Message("You were killed by " +  p.ColoredName + stringweaponused); 
+															pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
+															p.Extras["KILLER"] = p.truename; // Support for custom gamemodes
+															// Use string killedBy = p.Extras.GetInt("KILLEDBY") to get the player who killed them
+															// Use string killer = p.Extras.GetInt("KILLER") to get the killer
+															
+															pl.HandleDeath(Block.Stone);
+															p.Extras.Remove("DROWNING");
+															//pl.Game.Referee = true;
+															
+															players[i,1] = MaxHp;
+															
+																	
+															pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+																	
+															if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1")) {
+																if (pl.money > moneyStolen - 1) {
+																	p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
+																	Player.Message(pl, p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
+																	p.SetMoney(p.money + moneyStolen);
+																	pl.SetMoney(pl.money - moneyStolen);
+																			
+																	MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
+																	if (bounty != null) {
+																		ZSGame.Instance.Bounties.Remove(bounty);
+																		Player setter = PlayerInfo.FindExact(bounty.Origin);
+																						
+																		if (setter == null) {
+																			p.Message("Cannot collect the bounty, as the player who set it is offline.");
+																		} else {
+																			p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
+																						bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
+																			p.SetMoney(p.money + bounty.Amount);
+																		}
 																	}
 																}
 															}
 														}
-													}
-												} else { p.Message("You don't own this weapon."); } 
-											} else { p.Message("You can't hurt people in a safe zone."); }
+													} else { p.Message("You don't own this weapon."); } 
+												} else { p.Message("You can't hurt people in a safe zone."); }
+											}
+											players[curpid,2] =  DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
 										}
-										players[curpid,2] =  DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
 									}
 								}
 							}
 						}
 					}
+				  	
+				  	#endregion
 				}
 			}
 		}
 		
 		static bool ClickOnPlayer(Player p, byte entity, MouseButton button) {
-		    Player[] players = PlayerInfo.Online.Items;
-			for (int i = 0; i < players.Length; i++) {
-		        if (players[i].EntityID != entity) continue;
-				Player pl = players[i];
+		    Player[] ponline = PlayerInfo.Online.Items;
+			for (int i = 0; i < ponline.Length; i++) {
+		        if (ponline[i].EntityID != entity) continue;
+				Player pl = ponline[i];
 				Vec3F32 delta = p.Pos.ToVec3F32() - pl.Pos.ToVec3F32();
 				float reachSq = p.ReachDistance * p.ReachDistance;
 				// Don't allow clicking on players further away than their reach distance
 				if (delta.LengthSquared > (reachSq + 1)) return false;
-				
-				//if (!p.Game.Referee) continue;
-				//if (!pl.Game.Referee) continue;
-								
-				if (button == MouseButton.Left) {
-                    PushPlayer(p, pl);
+				curpid = -1;
+				for (int yi = 0; yi < 100; yi++) {
+					if (players[yi,0] == p.name) {
+						curpid = yi;
+					}
 				}
-				return true;
+					  
+				int s = DateTime.Now.Second;
+				int ms = DateTime.Now.Millisecond;
+				if (int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid,2]) < -300) {				
+					if (button == MouseButton.Left) {
+                    	PushPlayer(p, pl);
+					} return true;
+				}
 		    }
 			return false;
 		}
@@ -676,7 +769,7 @@ namespace MCGalaxy {
 			
 			if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl)) {
 				// Intensity of force is in part determined by model scale
-				pl.Send(Packet.VelocityControl(-dir.X*mult, 1.233f*mult, -dir.Z*mult, 0, 1, 0));
+                pl.Send(Packet.VelocityControl(-dir.X*mult, 1.233f*mult, -dir.Z*mult, 0, 1, 0));
             } else {
 				p.Message("You can left and right click people to push or pull them if you update to dev build with launcher options!");
 			}
@@ -705,6 +798,170 @@ namespace MCGalaxy {
 				p.SendCpeMessage(CpeMessageType.BottomRight2, "");
 			}
 		}
+        
+		public static void SetHpIndicator(int i, Player pl) {
+			int a = int.Parse(players[i,1]);
+			
+			if (a == 20) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥♥"); }
+			if (a == 19) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥╫"); }
+			if (a == 18) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥%0♥"); }
+			if (a == 17) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥╫%0♥"); }
+			if (a == 16) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥%0♥♥"); }
+			if (a == 15) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥╫%0♥♥"); }
+			if (a == 14) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥%0♥♥♥"); }
+			if (a == 13) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥╫%0♥♥♥"); }
+			if (a == 12) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥%0♥♥♥♥"); }
+			if (a == 11) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥╫%0♥♥♥♥"); }
+			if (a == 10) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥%0♥♥♥♥♥"); }
+			if (a == 9) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥╫%0♥♥♥♥♥"); }
+			if (a == 8) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥%0♥♥♥♥♥♥"); }
+			if (a == 7) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥╫%0♥♥♥♥♥♥"); }
+			if (a == 6) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥%0♥♥♥♥♥♥♥"); }
+			if (a == 5) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥╫%0♥♥♥♥♥♥♥"); }
+			if (a == 4) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥%0♥♥♥♥♥♥♥♥"); }
+			if (a == 3) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥╫%0♥♥♥♥♥♥♥♥"); }
+			if (a == 2) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥%0♥♥♥♥♥♥♥♥♥"); }
+			if (a == 1) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f╫%0♥♥♥♥♥♥♥♥♥"); }
+			if (a == 0) { pl.SendCpeMessage(CpeMessageType.BottomRight2, "%0♥♥♥♥♥♥♥♥♥♥"); }
+		}
+		
+		#endregion
+		
+		#region Weapons
+		
+		bool hasWeapon(string world, Player p, string weapon) {
+		    string filepath = path + "weapons/" + world + "/" + p.truename + ".txt";
+			if (System.IO.File.Exists(filepath)) {
+				using (var r = new System.IO.StreamReader(filepath)) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						if (line == weapon) return true;
+					}
+				}
+			}
+			return false;
+		}
+		
+		string getWeaponStats(string weapon) {
+			for (int i = 0; i < 255; i++) {
+				if (weapons[i,0] == weapon) {
+					return weapons[i,0] + " " + weapons[i,1] + " " + weapons[i,2];
+				}
+			}
+			return "0 1 0";
+		}
+		
+		void loadWeapons() {
+			if (System.IO.File.Exists(path + "weapons.txt")) {
+				using (var r = new System.IO.StreamReader(path + "weapons.txt")) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						string[] weaponStats = line.Split(';');
+						for (int i = 0; i < 255; i++) {
+							if (weapons[i,0] == null){
+								weapons[i,0] = weaponStats[0];
+								weapons[i,1] = weaponStats[1];
+								weapons[i,2] = weaponStats[2];								
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		#endregion
+		
+		#region Tools
+		
+		bool hasTool(string world, Player p, string tool) {
+		    string filepath = path + "tools/" + world + "/" + p.truename + ".txt";
+			if (System.IO.File.Exists(filepath)) {
+				using (var r = new System.IO.StreamReader(filepath)) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						if (line == tool) return true;
+					}
+				}
+			}
+			return false;
+		}
+		
+		string getToolStats(string tool) {
+			for (int i = 0; i < 255; i++) {
+				if (tools[i,0] == tool) {
+					return tools[i,0] + " " + tools[i,1] + " " + tools[i,2] + " " + tools[i,3];
+				}
+			}
+			return "0 1 0 0";
+		}
+		
+		void loadTools() {
+			if (System.IO.File.Exists(path + "tools.txt")) {
+				using (var r = new System.IO.StreamReader(path + "tools.txt")) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						string[] toolStats = line.Split(';');
+						for (int i = 0; i < 255; i++) {
+							if (tools[i,0] == null){
+								tools[i,0] = toolStats[0];
+								tools[i,1] = toolStats[1];
+								tools[i,2] = toolStats[2];		
+								tools[i,3] = toolStats[3];									
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		#endregion
+		
+		#region Blocks
+		
+		bool hasBlock(string world, Player p, string block) {
+		    string filepath = path + "blocks/" + world + "/" + p.truename + ".txt";
+			if (System.IO.File.Exists(filepath)) {
+				using (var r = new System.IO.StreamReader(filepath)) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						if (line == block) return true;
+					}
+				}
+			}
+			return false;
+		}
+		
+		string getBlockStats(string block) {
+			for (int i = 0; i < 255; i++) {
+				if (blocks[i,0] == block) {
+					return blocks[i,0] + " " + blocks[i,1] + " " + blocks[i,2];
+				}
+			}
+			return "0 1 0";
+		}
+		
+		void loadBlocks() {
+			if (System.IO.File.Exists(path + "blocks.txt")) {
+				using (var r = new System.IO.StreamReader(path + "blocks.txt")) {
+					string line;
+					while ((line = r.ReadLine()) != null) {
+						string[] blockStats = line.Split(';');
+						for (int i = 0; i < 255; i++) {
+							if (blocks[i,0] == null){
+								blocks[i,0] = blockStats[0];
+								blocks[i,1] = blockStats[1];
+								blocks[i,2] = blockStats[2];										
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		#endregion
 	}
   
 	public sealed class CmdPvP : Command2 {
@@ -721,12 +978,12 @@ namespace MCGalaxy {
         
         public override void Use(Player p, string message, CommandData data) {
 		  	if (message.Length == 0) { Help(p); return; }
-            string[] args = message.SplitSpaces(5);
+            string[] args = message.SplitSpaces(2);
             
             switch (args[0].ToLower()) {
                 case "add": HandleAdd(p, args, data); return;
                 case "del": HandleDelete(p, args, data); return;
-                case "sethp": HandleSetHP(p, args, data); return;
+                case "sethp": HandleDelete(p, args, data); return;
             }
 		}
         
@@ -772,33 +1029,19 @@ namespace MCGalaxy {
             p.Message("The map %b" + pvpMap + " %Shas been removed from the PvP map list.");
         }
         
-        // Sekrit cmd for setting health manually
+        // Sekrit cmd
         
         void HandleSetHP(Player p, string[] args, CommandData data) {
-        	if (args.Length == 1) return;
-        	if (args[1] != "secretcode") return;
-        	if (args.Length == 2) { p.Message("You need to specify a player to set their health."); return; }
-        	if (args.Length == 3) { p.Message("You need to specify the amount of health to set."); return; }
-
-            string name = args[2];
-            string health = args[3];
-            
-            Player[] online = PlayerInfo.Online.Items;
-            
-            foreach (Player pl in online) {
-            	if (pl.truename != args[2]) return;
-            	
-            	for (int i = 0; i < 100; i++){
-					PvP.players[i,1] = args[3];
-					PvP.SetHpIndicator(i, pl);
-				}
-            }
+        	if (args.Length == 1) { p.Message("You need to specify a player to set their health."); return; }
+        	if (args.Length == 2) { p.Message("You need to specify an amount of health to set."); return; }
+            string name = args[1];
+            string health = args[2];
         }
         
         public override void Help(Player p) {
             p.Message("%T/PvP add <map> %H- Adds a map to the PvP map list.");
             p.Message("%T/PvP del <map> %H- Deletes a map from the PvP map list.");
-            // p.Message("%T/PvP sethp <code> <player> <1-20> %H- Sets a player's health.");
+            // p.Message("%T/PvP sethp [player] [1-20] %H- Sets a player's health.");
         }
     }
   
@@ -883,6 +1126,8 @@ namespace MCGalaxy {
 					break;
 				}
         	}
+        	
+        	p.Message("Created weapon with ID %b" + args[1] + "%S, damage %b" + args[2] + "%S and durability %b" + args[3] + "%S.");
         }
         
         void createWeapon(string id, string damage, string durability) {
@@ -925,6 +1170,142 @@ namespace MCGalaxy {
             p.Message("%T/Weapon del %H- Removes a weapon current PvP map.");
             p.Message("%T/Weapon give [player] [world] [weapon] %H- Gives a player a weapon.");
             p.Message("%T/Weapon take [player] [world] %H- Takes all weapons from a player away.");
+        }
+	}
+	
+    public sealed class CmdTool : Command2 {
+		string path = "./plugins/PvP/";
+		
+        public override string name { get { return "Tool"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms {
+            get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage tools") }; }
+        }
+
+        public override void Use(Player p, string message, CommandData data) {
+		  if (message.Length == 0) { Help(p); return; }
+            string[] args = message.SplitSpaces(5);
+            
+            switch (args[0].ToLower()) {
+                case "add": HandleAdd(p, args); return;
+                case "give": HandleGive(p, args); return;
+                case "take": HandleTake(p, args); return;
+            }
+		}
+        
+        void HandleAdd(Player p, string[] args) {
+        	if (args.Length == 1) { p.Message("You need to specify an ID for the tool. E.g, '1' for stone."); return; }
+        	if (args.Length == 2) { p.Message("You need to specify the speed that the weapon mines at. E.g, '1' for normal speed, '2' for 2x speed."); return; }
+        	if (args.Length == 3) { p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks."); return; }
+        	if (args.Length == 4) { p.Message("%H[type] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel."); return; }
+        	    
+        	for (int i = 0; i < 255; i++) {
+				if (PvP.tools[i,0] == null) {
+					PvP.tools[i,0] = args[1];
+					PvP.tools[i,1] = args[2];
+					PvP.tools[i,2] = args[3];
+					PvP.tools[i,3] = args[4];
+					createTool(args[1], args[2], args[3], args[4]);
+					break;
+				}
+        	}
+        }
+        
+        void createTool(string id, string damage, string durability, string type) {
+			System.IO.FileInfo filedir = new System.IO.FileInfo(path + "tools.txt");
+			filedir.Directory.Create();
+		
+			using (System.IO.StreamWriter file = new System.IO.StreamWriter(path + "tools.txt", true)) {
+				file.WriteLine(id + ";" + damage + ";" + durability + ";" + type);
+			}
+		}
+        	
+        void HandleGive(Player p, string[] args) {
+        	if (args.Length == 1) { p.Message("You need to specify a username to give the tool to."); return; }
+        	if (args.Length == 2) { p.Message("You need to specify the world to allow them to use the tool on."); return; }
+        	if (args.Length == 3) { p.Message("You need to specify the name of the tool."); return; }
+        	
+        	string filepath = path + "tools/" + args[2] + "/" + args[1] + ".txt";
+			System.IO.FileInfo filedir = new System.IO.FileInfo(filepath);
+			filedir.Directory.Create();
+			using (System.IO.StreamWriter file = new System.IO.StreamWriter(filepath, true)) {
+				file.WriteLine(args[3]);
+			}
+		}
+        	
+        void HandleTake(Player p, string[] args) {
+        	Player[] online = PlayerInfo.Online.Items;
+			foreach (Player pl in online) {
+				if (pl.truename == args[1]) {
+					string filepath = path + "tools/" + args[2] + "/" + args[1] + ".txt";
+					
+					if (System.IO.File.Exists(filepath)) {
+						System.IO.File.WriteAllText(filepath, string.Empty);
+					}
+				}
+        	}
+		}	
+        
+        public override void Help(Player p) {
+            p.Message("%T/Tool add [id] [speed] [durability] [type] %H- Adds an tool to the current PvP map.");
+            p.Message("%T/Tool del %H- Removes an tool from current PvP map.");
+            p.Message("%T/Tool give [player] [world] [tool] %H- Gives a player an tool.");
+            p.Message("%T/Tool take [player] [world] %H- Takes all tools from a player away.");
+        }
+	}
+	
+    public sealed class CmdBlock : Command2 {
+		string path = "./plugins/PvP/";
+		
+        public override string name { get { return "Block"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms {
+            get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage blocks") }; }
+        }
+
+        public override void Use(Player p, string message, CommandData data) {
+		  if (message.Length == 0) { Help(p); return; }
+            string[] args = message.SplitSpaces(5);
+            
+            switch (args[0].ToLower()) {
+                case "add": HandleAdd(p, args); return;
+            }
+		}
+        
+        void HandleAdd(Player p, string[] args) {
+        	if (args.Length == 1) { p.Message("You need to specify an ID for the block. E.g, '1' for stone."); return; }
+        	if (args.Length == 2) { p.Message("You need to specify the tool that makes mining faster. %T[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel."); return; }
+        	if (args.Length == 3) { p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks."); return; }
+        	    
+        	for (int i = 0; i < 255; i++) {
+				if (PvP.blocks[i,0] == null) {
+					PvP.blocks[i,0] = args[1];
+					PvP.blocks[i,1] = args[2];
+					PvP.blocks[i,2] = args[3];
+					createBlock(args[1], args[2], args[3]);
+					break;
+				}
+        	}
+        }
+        
+        void createBlock(string id, string tool, string durability) {
+			System.IO.FileInfo filedir = new System.IO.FileInfo(path + "blocks.txt");
+			filedir.Directory.Create();
+		
+			using (System.IO.StreamWriter file = new System.IO.StreamWriter(path + "blocks.txt", true)) {
+				file.WriteLine(id + ";" + tool + ";" + durability);
+			}
+		}
+        
+        public override void Help(Player p) {
+            p.Message("%T/Block add [id] [tool] [durability] %H- Adds a block to the current PvP map.");
+            p.Message("%H[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
         }
 	}
 }

@@ -17,10 +17,11 @@ Here you will find the source of my public plugins and commands, free to use how
 |  **Example** | Example source code in case you want to make your own plugins.
 |  **Flood*** | Allows client-side water flooding.
 |  **GamemodeTemplate** | The template I use on my servers.
+|  **IRCWebhook** | Relays a message from your server to Discord without a bot.
 |  **LastLocation*** | Return to your last known location.
 |  **Nametags*** | Changes your nametag.
 |  **Parties** | Join and talk with specific people.
-|  **PvP** | Click on players to do damage and knock them back.
+|  **VenkSurvival** | Includes PvP, drowning, mining tools/weapons.
 |  **XP** | Adds an XP and leveling system.
 
 `*` means that the plugin is private or made exclusive for specific people.
@@ -29,10 +30,11 @@ Here you will find the source of my public plugins and commands, free to use how
 | Name | Description |
 | ------------- | -----|
 |  **/Announce** | Show custom text in the middle of peoples' screen.
-|  **/FakeGive** | Tell people they've gotten money but they haven't.
+|  **/FakeGive** | Tell people they've gotten money when they haven't.
+|  **/ImportSchematic** | Imports a .schematic file from Minecraft into CC's .lvl format.
 |  **/Preset** | Easier access for /os env preset that doesn't require realm ownership to use.
 |  **/Remove** | Removes a player from the playerbase permanently.
-|  **/ImportSchematic** | Imports a .schematic file from Minecraft into CC.
+|  **/Reward** | Used primarily in message blocks to give rewards to players.
 
 # Installation
 
