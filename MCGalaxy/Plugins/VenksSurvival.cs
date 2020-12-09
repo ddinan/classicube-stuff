@@ -1,4 +1,4 @@
-﻿/* 
+/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -22,13 +22,15 @@
   1. Type /block add [id] [type] [durability].
   2. Add "mining=true" to the map's MOTD. (/map motd mining=true)
   
+  IF YOU WANT POTIONS:
+  1. Type /potion [secret code] [potion type] [amount].
+  2. To use the potion, type /potion [potion type]
+  
   TODO:
-  1. Can still hit twice occasionally... let's disguise it as a critical hit for now?
-  3. Health regen?
-  4. Potions (already in my MMO).
-  5. Mobs.
-  6. Hunger?
-  7. Sprinting?
+  1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
+  2. Health regen?
+  3. Mobs.
+  4. Hunger?
   
  */
 
@@ -43,12 +45,13 @@ using MCGalaxy.Drawing.Ops;
 using MCGalaxy.Games;
 using MCGalaxy.Maths;
 using MCGalaxy.Network;
+using MCGalaxy.SQL;
 using MCGalaxy.Tasks;
 using BlockID = System.UInt16;
 
 namespace MCGalaxy {
     public class PvP : Plugin_Simple {
-		public override string name { get { return "PvP"; } }
+		public override string name { get { return "&aVenk's Survival%S"; } }
 		public override string MCGalaxy_Version { get { return "1.9.1.5"; } }
 		public override string creator { get { return "Venk and Sirvoid"; } }
 		
@@ -62,6 +65,7 @@ namespace MCGalaxy {
 		bool economy = false; // Enable (true) or disable (false) rewards when killing someone
 		int moneyStolen = 0; // If economy = true, money stolen when you kill someone
 		string path = "./plugins/PvP/"; // Plugin path
+		public static string SecretCode = "code";
 		
 		public static int curpid = -1;
 		public static List<string> maplist = new List<string>();
@@ -75,6 +79,7 @@ namespace MCGalaxy {
 			loadWeapons();
 			loadTools();
 			loadBlocks();
+			initDB();
 		  
 			OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
 			OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
@@ -87,6 +92,7 @@ namespace MCGalaxy {
 		  	Command.Register(new CmdWeapon());
 		  	Command.Register(new CmdTool());
 		  	Command.Register(new CmdBlock());
+		  	Command.Register(new CmdPotion());
 			
 			Player[] online = PlayerInfo.Online.Items;
 			foreach (Player p in online) {
@@ -98,8 +104,7 @@ namespace MCGalaxy {
 						break;
 					}
 				}
-				
-			  	p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+			  	//p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 			}
 		}
                         
@@ -113,8 +118,25 @@ namespace MCGalaxy {
 			Command.Unregister(Command.Find("Weapon"));
 			Command.Unregister(Command.Find("Tool"));
 			Command.Unregister(Command.Find("Block"));
+			Command.Unregister(Command.Find("Potion"));
 		}
 		
+		ColumnDesc[] createPotions = new ColumnDesc[] {
+            new ColumnDesc("Name", ColumnType.VarChar, 16),
+            new ColumnDesc("Health", ColumnType.Int32),
+            new ColumnDesc("Speed", ColumnType.Int32),
+            new ColumnDesc("Invisible", ColumnType.Int32),
+            new ColumnDesc("Jump", ColumnType.Int32),
+            new ColumnDesc("Waterbreathing", ColumnType.Int32),
+            new ColumnDesc("Damage", ColumnType.Int32),
+            new ColumnDesc("Strength", ColumnType.Int32),
+            new ColumnDesc("Slowness", ColumnType.Int32),
+            new ColumnDesc("Blindness", ColumnType.Int32),
+        };
+		
+		void initDB() {
+			Database.CreateTable("Potions", createPotions);
+		}
 				
 		void loadMaps() {
 			if (System.IO.File.Exists(path + "maps.txt")) {
@@ -126,7 +148,7 @@ namespace MCGalaxy {
 				}
 			}
 		}
-		
+
 		#region Drowning
 		
 		void HandleDrown(SchedulerTask task) {
@@ -965,6 +987,74 @@ namespace MCGalaxy {
 		}
 		
 		#endregion
+		
+		#region Potions
+		
+        public static void CheckInvisible(SchedulerTask task) {
+            Player[] players = PlayerInfo.Online.Items;
+            foreach (Player p in players) {
+            	if (!p.Extras.GetBoolean("POTION_IS_INVISIBLE")) break;
+            	// Timer
+
+            	string time = p.Extras.GetString("POTION_INV_TIMER");
+            	DateTime date1 = DateTime.Parse(time);
+            	
+				DateTime date2 = date1.AddSeconds(10);
+			    
+            	if (DateTime.UtcNow > date2) {
+            		p.Extras["POTION_IS_INVISIBLE"] = false;
+            		
+            		Entities.GlobalSpawn(p, true);
+					Server.hidden.Remove(p.name);
+            		p.Message("The invisibility potion has worn off, you are now visible again.");
+            		Server.MainScheduler.Cancel(task);
+            	}
+            }
+        }
+        
+        public static void CheckSpeed(SchedulerTask task) {
+            Player[] players = PlayerInfo.Online.Items;
+            foreach (Player p in players) {
+            	if (!p.Extras.GetBoolean("POTION_IS_FAST")) break;
+            	if (p.Extras.GetBoolean("POTION_IS_JUMP")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75")); 
+            	else p.Send(Packet.Motd(p, p.level.Config.MOTD + " horspeed=3.75")); 
+            	// Timer
+
+            	string time = p.Extras.GetString("POTION_SPEED_TIMER");
+            	DateTime date1 = DateTime.Parse(time);
+				DateTime date2 = date1.AddSeconds(7);
+			    
+            	if (DateTime.UtcNow > date2) {
+            		p.Extras["POTION_IS_FAST"] = false;
+                    p.SendMapMotd();
+            		p.Message("The speed potion has worn off, you are now at normal speed again.");
+            		Server.MainScheduler.Cancel(task);
+            	}
+            }
+        }
+        
+        public static void CheckJump(SchedulerTask task) {
+            Player[] players = PlayerInfo.Online.Items;
+            foreach (Player p in players) {
+            	if (!p.Extras.GetBoolean("POTION_IS_JUMP")) break;
+            	if (p.Extras.GetBoolean("POTION_IS_FAST")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75")); 
+            	else p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4"));
+				p.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight            	
+            	// Timer
+
+            	string time = p.Extras.GetString("POTION_JUMP_TIMER");
+            	DateTime date1 = DateTime.Parse(time);
+				DateTime date2 = date1.AddSeconds(7);
+			    
+            	if (DateTime.UtcNow > date2) {
+            		p.Extras["POTION_IS_JUMP"] = false;
+                    p.SendMapMotd();
+            		p.Message("The jump potion has worn off, you are now at normal jump height again.");
+            		Server.MainScheduler.Cancel(task);
+            	}
+            }
+        }
+		#endregion
 	}
   
 	public sealed class CmdPvP : Command2 {
@@ -1311,4 +1401,160 @@ namespace MCGalaxy {
             p.Message("%H[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
         }
 	}
+	
+	public sealed class CmdPotion : Command2 {
+        public override string name { get { return "Potion"; } }
+        public override bool SuperUseable { get { return false; } }
+        public override string type { get { return "fun"; } }
+
+        public override void Use(Player p, string message, CommandData data) {
+            p.lastCMD = "Secret";
+
+            string[] args = message.SplitSpaces(3);
+            
+            List <string[]> rows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+
+            if (args[0].Length == 0) {
+            	p.Message("You need to specify a potion to use.");
+            	p.Message("%T/Potion health %b- Sets your health to full.");
+            	p.Message("%T/Potion speed %b- Gives you a 3.75x speed boost for 3 minutes.");
+            	p.Message("%T/Potion jump %b- Gives you a 4x jump boost for 3 minutes.");
+            	p.Message("%T/Potion invisible %b- Makes you invisible for 10 seconds.");
+            } 
+             
+            else {
+            	List<string[]> pRows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+            	if (args[0] == PvP.SecretCode && args.Length >= 3) { // Used for getting potions
+            		string item = args[1].ToLower();
+            		int quantity = Int32.Parse(args[2]);
+	                    
+	                if (pRows.Count == 0) {
+	                    if (item == "health") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, quantity, 0, 0, 0, 0, 0, 0, 0);
+	                    if (item == "speed") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, 0, quantity, 0, 0, 0, 0, 0, 0);
+	                    if (item == "invisible") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, 0, 0, quantity, 0, 0, 0, 0, 0);
+	                    if (item == "jump") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, 0, 0, 0, quantity, 0, 0, 0, 0);
+	                    	
+		                p.Message("You now have: %b" + quantity + " %S" + item + " potions");
+	                    return;
+	                }
+	                    
+	                    else {
+	                    	int h = int.Parse(pRows[0][1]);
+	                    	int s = int.Parse(pRows[0][2]);
+	                    	int i = int.Parse(pRows[0][3]);
+	                    	int j = int.Parse(pRows[0][4]);
+	                    	
+	                    	int newH = quantity + h;
+	                    	int newS = quantity + s;
+	                    	int newI = quantity + i;
+	                    	int newJ = quantity + j;
+	                    	
+	                    	if (item == "health") { 
+	                    		Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, newH);
+	                    		p.Message("You now have: %b" + newH + " %S" + item + " potions");
+	                    	}
+	                    	
+	                    	if (item == "speed") {
+	                    		Database.UpdateRows("Potions", "Speed=@1", "WHERE NAME=@0", p.truename, newS);
+	                    		p.Message("You now have: %b" + newS + " %S" + item + " potions");
+	                    	}
+	                    	
+	                    	if (item == "invisible") {
+	                    		Database.UpdateRows("Potions", "Invisible=@1", "WHERE NAME=@0", p.truename, newI);
+	                    		p.Message("You now have: %b" + newI + " %S" + item + " potions");
+	                    	}
+	                    	
+	                    	if (item == "jump") {
+	                    		Database.UpdateRows("Potions", "Jump=@1", "WHERE NAME=@0", p.truename, newJ);
+	                    		p.Message("You now have: %b" + newJ + " %S" + item + " potions");
+	                    	}
+		                    return;
+	                    }
+                }
+            	
+            	if (args[0] == "list") {
+            		if (pRows.Count == 0) {
+	                    p.Message("%SYou do not have any potions.");
+	                    return;
+	                }
+            		int h = int.Parse(rows[0][1]);
+            		int s = int.Parse(rows[0][2]);
+            		int i = int.Parse(rows[0][3]);
+            		int j = int.Parse(rows[0][4]);
+            		
+            		p.Message("%aYour potions:");
+                	p.Message("%7Health %ex{0}%7, Speed %ex{1}%7, Invisible %ex{2}%7, Jump %ex{3}", h, s, i, j);
+            	}
+                
+                if (args[0] == "health") {
+            		if (pRows.Count == 0) {
+	                    p.Message("%SYou do not have any potions.");
+	                    return;
+	                }
+            		int h = int.Parse(rows[0][1]);
+            		if (h == 0) { p.Message("You don't have any health potions."); return; }
+            		
+            		// Use potion
+            		Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, h - 1);
+            		Command.Find("PvP").Use(p, "sethp " + PvP.SecretCode + " " + p.truename + " 20");
+            		p.Message("Your health has been replenished.");
+            		p.Message("You have " + (h - 1) + " health potions remaining.");
+                }
+            	
+            	if (args[0] == "speed") {
+            		if (pRows.Count == 0) {
+	                    p.Message("%SYou do not have any potions.");
+	                    return;
+	                }
+					int s = int.Parse(rows[0][2]);
+					if (s == 0) { p.Message("You don't have any speed potions."); return; }
+					
+					// Use potion
+					Database.UpdateRows("Potions", "Speed=@1", "WHERE NAME=@0", p.truename, s - 1);
+					p.Extras["POTION_IS_FAST"] = true;
+					p.Extras["POTION_SPEED_TIMER"] = DateTime.UtcNow;
+					p.Message("You have " + (s - 1) + " speed potions remaining.");
+					Server.MainScheduler.QueueRepeat(PvP.CheckSpeed, null, TimeSpan.FromMilliseconds(10));
+                }
+            	
+            	if (args[0] == "invisible") {
+            		if (pRows.Count == 0) {
+	                    p.Message("%SYou do not have any potions.");
+	                    return;
+	                }
+					int i = int.Parse(rows[0][3]);
+					if (i == 0) { p.Message("You don't have any invisible potions."); return; }
+					
+					// Use potion
+					Database.UpdateRows("Potions", "Invisible=@1", "WHERE NAME=@0", p.truename, i - 1);
+					p.Extras["POTION_IS_INVISIBLE"] = true;
+					
+					Entities.GlobalDespawn(p, true); // Remove from tab list
+					Server.hidden.Add(p.name);
+					p.Extras["POTION_INV_TIMER"] = DateTime.UtcNow;
+					p.Message("%aYou are now invisible.");
+					p.Message("You have " + (i - 1) + " invisible potions remaining.");
+					Server.MainScheduler.QueueRepeat(PvP.CheckInvisible, null, TimeSpan.FromSeconds(1));
+                }
+            	
+            	if (args[0] == "jump") {
+            		if (pRows.Count == 0) {
+	                    p.Message("%SYou do not have any potions.");
+	                    return;
+	                }
+					int j = int.Parse(rows[0][4]);
+					if (j == 0) { p.Message("You don't have any jump potions."); return; }
+					
+					// Use potion
+					Database.UpdateRows("Potions", "Jump=@1", "WHERE NAME=@0", p.truename, j - 1);
+					p.Extras["POTION_IS_JUMP"] = true;
+					p.Extras["POTION_JUMP_TIMER"] = DateTime.UtcNow;
+					p.Message("You have " + (j - 1) + " jump potions remaining.");
+					Server.MainScheduler.QueueRepeat(PvP.CheckJump, null, TimeSpan.FromMilliseconds(10));
+                }
+            }
+        }
+
+        public override void Help(Player p) {}
+    }
 }
