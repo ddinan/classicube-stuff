@@ -700,7 +700,8 @@ namespace MCGalaxy {
 															pl.level.Message(pl.ColoredName + " %Swas killed by " +  p.truename + stringweaponused);
 															pl.Message("You were killed by " +  p.ColoredName + stringweaponused); 
 															pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
-															p.Extras["KILLER"] = p.truename; // Support for custom gamemodes
+															pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
+															pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
 															// Use string killedBy = p.Extras.GetInt("KILLEDBY") to get the player who killed them
 															// Use string killer = p.Extras.GetInt("KILLER") to get the killer
 															
@@ -775,6 +776,8 @@ namespace MCGalaxy {
 						// Check if they can kill players, as determined by gamemode plugins
 						bool canKill = PvP.gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
 						if (!canKill) return false;
+						if (p.Game.Referee) return false;
+						if (pl.Game.Referee) return false;
                     	PushPlayer(p, pl);
 					} return true;
 				}
@@ -794,7 +797,7 @@ namespace MCGalaxy {
 			
 			if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl)) {
 				// Intensity of force is in part determined by model scale
-                pl.Send(Packet.VelocityControl(-dir.X*mult, 1.233f*mult, -dir.Z*mult, 0, 1, 0));
+                pl.Send(Packet.VelocityControl(-dir.X*mult, 1.089f*mult, -dir.Z*mult, 0, 1, 0));
             } else {
 				p.Message("You can left and right click people to push or pull them if you update to dev build with launcher options!");
 			}
