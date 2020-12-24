@@ -16,7 +16,7 @@ namespace Core {
         }
     }
     
-    public class Something : Command2 {
+    public class CmdSomething : Command2 {
         public override string name { get { return "Something"; } }
         public override string type { get { return "other"; } }
         public override LevelPermission defaultRank { get { return LevelPermission.Operator; } }
