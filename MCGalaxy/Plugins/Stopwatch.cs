@@ -177,6 +177,7 @@ namespace MCGalaxy {
         }
  
         public override void Use(Player p, string message, CommandData data) {
+            p.lastCMD = "Secret";
             string[] args = message.SplitSpaces(2);
             
             if (message.Length == 0) { Help(p); return; }
