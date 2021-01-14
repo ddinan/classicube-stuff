@@ -73,11 +73,13 @@ namespace MCGalaxy {
         // For instance in Murder Mystery, I don't want regulars to be able to PvP
         // but I do want killers/detectives to be able to
         bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
+        bool regeneration = true; // Enable (true) or disable (false) automatic health regeneration
         bool blockMining = true; // Enable (true) or disable (false) mining blocks (only works with deletable off!)
         bool economy = false; // Enable (true) or disable (false) rewards when killing someone
         int moneyStolen = 0; // If economy = true, money stolen when you kill someone
         string path = "./plugins/PvP/"; // Plugin path
-        public static string SecretCode = "code";
+
+        public static string SecretCode = "code"; // Potions secret code
 
         public static int curpid = -1;
         public static List < string > maplist = new List < string > ();
@@ -97,6 +99,7 @@ namespace MCGalaxy {
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
             Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1)); // 1*10
+            Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromMilliseconds(2500));
             //Server.MainScheduler.QueueRepeat(HandleFall, null, TimeSpan.FromMilliseconds(1)); 
 
             Command.Register(new CmdPvP());
@@ -171,7 +174,7 @@ namespace MCGalaxy {
             foreach(Player p in online) {
                 if (maplist.Contains(p.level.name)) {
                     if (p.invincible) {
-                        return;
+                        break;
                     }
                     ushort x = (ushort)(p.Pos.X / 32);
                     ushort y = (ushort)((p.Pos.Y - Entities.CharacterHeight) / 32);
@@ -475,6 +478,31 @@ namespace MCGalaxy {
         }
 
         #endregion
+        
+        #region Regeneration
+        
+        void HandleRegeneration(SchedulerTask task) {
+            if (regeneration == false) {
+                return;
+            }
+            Player[] online = PlayerInfo.Online.Items;
+            foreach(Player p in online) {
+                if (maplist.Contains(p.level.name)) {
+                    for (int i = 0; i < 100; i++) {
+                        if (players[i, 0] == p.truename) {
+                            int a = int.Parse(players[i, 1]);
+                            if (a.ToString() == MaxHp) {
+                                break;
+                            }
+                            players[i, 1] = (a + 1) + "";
+                            SetHpIndicator(i, p);
+                        }
+                    }
+                }
+            }
+        }
+        
+        #endregion
 
         #region Fall damage WIP
         // TODO: Calculations are inaccurate and server can affect measurements. Use at own risk!
@@ -709,7 +737,7 @@ namespace MCGalaxy {
 
                         int s = DateTime.Now.Second;
                         int ms = DateTime.Now.Millisecond;
-                        if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -300) {
+                        if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350) {
                             Player[] online = PlayerInfo.Online.Items;
                             foreach(Player pl in online) {
                                 if (pl.EntityID == entity) {
@@ -817,13 +845,15 @@ namespace MCGalaxy {
 
                 int s = DateTime.Now.Second;
                 int ms = DateTime.Now.Millisecond;
-                if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -300) {
+                if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350) {
                     if (button == MouseButton.Left) {
                         // Check if they can kill players, as determined by gamemode plugins
                         bool canKill = PvP.gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
                         if (!canKill) return false;
                         if (p.Game.Referee) return false;
                         if (pl.Game.Referee) return false;
+                        if (p.invincible) return false;
+                        if (pl.invincible) return false;
                         PushPlayer(p, pl);
                     }
                     return true;
@@ -844,13 +874,22 @@ namespace MCGalaxy {
 
             if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl)) {
                 // Intensity of force is in part determined by model scale
-                pl.Send(Packet.VelocityControl(-dir.X * mult, 1.089 f * mult, -dir.Z * mult, 0, 1, 0));
+                pl.Send(Packet.VelocityControl((-dir.X * mult) * 0.67f, 1.059f * mult, (-dir.Z * mult) * 0.67f, 0, 1, 0));
             } else {
-                p.Message("You can left and right click people to push or pull them if you update to dev build with launcher options!");
+                p.Message("You can left and right click people to hit them if you update your client!");
             }
         }
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
+            for (int i = 0; i < 100; i++) {
+                if (players[i, 0] == p.truename) {
+                    int a = int.Parse(players[i, 1]);
+                    players[i, 1] = (a) + "";
+                    SetHpIndicator(i, p);
+                    players[i, 1] = MaxHp;
+                    p.Message("Health has been regenerated.");
+                }
+            }
             if (maplist.Contains(level.name)) {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
@@ -1190,7 +1229,7 @@ namespace MCGalaxy {
                 Help(p);
                 return;
             }
-            string[] args = message.SplitSpaces(2);
+            string[] args = message.SplitSpaces();
 
             switch (args[0].ToLower()) {
             case "add":
@@ -1200,7 +1239,7 @@ namespace MCGalaxy {
                 HandleDelete(p, args, data);
                 return;
             case "sethp":
-                HandleDelete(p, args, data);
+                HandleSetHP(p, args, data);
                 return;
             }
         }
@@ -1264,8 +1303,25 @@ namespace MCGalaxy {
                 p.Message("You need to specify an amount of health to set.");
                 return;
             }
-            string name = args[1];
-            string health = args[2];
+            
+            Player[] online = PlayerInfo.Online.Items;
+            Player target = PlayerInfo.FindMatches(p, args[1]);
+            if (target == null) return;
+            foreach (Player pl in online) {
+                if (PvP.maplist.Contains(p.level.name)) {
+                    if (pl.invincible) {
+                        break;
+                    }
+            
+                    for (int i = 0; i < 100; i++) {
+                        if (PvP.players[i, 0] == target.name) {
+                            
+                            PvP.players[i, 1] = args[2];
+                            PvP.SetHpIndicator(i, target);
+                        }
+                    }
+                }
+            }
         }
 
         public override void Help(Player p) {
