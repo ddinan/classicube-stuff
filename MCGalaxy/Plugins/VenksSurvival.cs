@@ -881,15 +881,7 @@ namespace MCGalaxy {
         }
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
-            for (int i = 0; i < 100; i++) {
-                if (players[i, 0] == p.truename) {
-                    int a = int.Parse(players[i, 1]);
-                    players[i, 1] = (a) + "";
-                    SetHpIndicator(i, p);
-                    players[i, 1] = MaxHp;
-                    p.Message("Health has been regenerated.");
-                }
-            }
+            Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
             if (maplist.Contains(level.name)) {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
@@ -908,7 +900,7 @@ namespace MCGalaxy {
             }
 
             if (prevLevel == null) return;
-            if (maplist.Contains(prevLevel.name) && !maplist.Contains(level.name)) {
+            if (!maplist.Contains(level.name)) {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "");
             }
         }
