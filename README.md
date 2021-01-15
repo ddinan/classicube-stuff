@@ -49,3 +49,8 @@ Here you will find the source of my public plugins and commands, free to use how
 2. Either in-game or via the server console, type **/compile [command name]**. It should say **Command compiled successfully.**, if it doesn't, make an issue [here](https://github.com/VenkSociety/MCGalaxy-Tools/issues).
 3. Now type **/cmdload [command name]**. It should say **Command loaded successfully.**
 4. And you're done, enjoy your command.
+
+`NOTE:`
+If you want your commands to load upon server start, you should add the command name into the `./text/cmdautoload.txt` file.
+
+For example, if your command file is named `CmdHelloWorld.cs`, you would put `HelloWorld` on a new line.
