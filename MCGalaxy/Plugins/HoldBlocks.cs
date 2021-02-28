@@ -44,7 +44,7 @@ namespace Core {
             foreach (Player pl in players) {
         	    // Get MOTD of map
                 LevelConfig cfg = LevelInfo.GetConfig(pl.level.name, out pl.level);
-                if (!cfg.MOTD.ToLower().Contains("+hold")) break;
+                if (!cfg.MOTD.ToLower().Contains("+hold") && !Server.Config.MOTD.Contains("+hold")) break;
                 if (!pl.Model.Contains("human") && !pl.Model.Contains("hold") && !pl.Model.Contains("-own")) break;
         	    BlockID block = pl.GetHeldBlock();
                 string holding = Block.GetName(pl, block);
