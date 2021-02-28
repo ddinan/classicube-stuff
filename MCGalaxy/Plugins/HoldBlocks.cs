@@ -1,5 +1,6 @@
 // To add: Set map MOTD to include +hold then every block you change to will update your model.
 // E.g, /map motd +hold
+// NOTE: Does not work if you are not a human or hold model
 
 using System;
 using System.Collections.Generic;
@@ -44,6 +45,7 @@ namespace Core {
         	    // Get MOTD of map
                 LevelConfig cfg = LevelInfo.GetConfig(pl.level.name, out pl.level);
                 if (!cfg.MOTD.ToLower().Contains("+hold")) break;
+                if (!pl.Model.Contains("human") && !pl.Model.Contains("hold") && !pl.Model.Contains("-own")) break;
         	    BlockID block = pl.GetHeldBlock();
                 string holding = Block.GetName(pl, block);
                 
