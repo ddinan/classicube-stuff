@@ -9,18 +9,24 @@ Here you will find the source of my public plugins and commands, free to use how
 |  **AntiVPN** | Doesn't let people with a VPN join the server.
 |  **BetterPing** | Makes your ping significantly lower.
 |  **BugWebhook** | Send a message on Discord whenever there's an error on your server.
+|  **CommandsInPluginExample** | Example source code for embedding commands into your plugin.
 |  **Compass** | Adds a compass into your HUD.
 |  **CustomChat*** | Allows changing the chat format.
 |  **CustomSoftware** | Allows changing the software name both in-game and in the launcher.
 |  **CustomTab*** | Allows changing the format of your tab list.
 |  **DailyBonus** | Give people money once per day when they login.
 |  **Example** | Example source code in case you want to make your own plugins.
-|  **Flood*** | Allows client-side water flooding.
-|  **GamemodeTemplate** | The template I use on my servers.
+|  **FavouriteMap** | Allows people to set their own favourite map shown in /whois.
+|  **GamemodeTemplate** | The template I use for gamemodes on my server.
+|  **HoldBlock*** | Shows the block you're holding in your hand for everybody to see.
 |  **IRCWebhook** | Relays a message from your server to Discord without a bot.
 |  **LastLocation*** | Return to your last known location.
+|  **Lottery*** | Enter and win money.
 |  **Nametags*** | Changes your nametag.
+|  **NickBlocker*** | Prevents using /whonick in a level.
 |  **Parties** | Join and talk with specific people.
+|  **TempFlood*** | Allows client-side water flooding.
+|  **TimeAFK** | Shows the amount of time players have been idle for.
 |  **VenkSurvival** | Includes PvP, drowning, mining tools/weapons.
 |  **XP** | Adds an XP and leveling system.
 
