@@ -18,12 +18,12 @@ Here you will find the source of my public plugins and commands, free to use how
 |  **Example** | Example source code in case you want to make your own plugins.
 |  **FavouriteMap** | Allows people to set their own favourite map shown in /whois.
 |  **GamemodeTemplate** | The template I use for gamemodes on my server.
-|  **HoldBlock*** | Shows the block you're holding in your hand for everybody to see.
+|  **HoldBlock** | Shows the block you're holding in your hand for everybody to see.
 |  **IRCWebhook** | Relays a message from your server to Discord without a bot.
 |  **LastLocation*** | Return to your last known location.
-|  **Lottery*** | Enter and win money.
+|  **Lottery** | Enter and win money.
 |  **Nametags*** | Changes your nametag.
-|  **NickBlocker*** | Prevents using /whonick in a level.
+|  **NickBlocker** | Prevents using /whonick in a level.
 |  **Parties** | Join and talk with specific people.
 |  **TempFlood*** | Allows client-side water flooding.
 |  **TimeAFK** | Shows the amount of time players have been idle for.
