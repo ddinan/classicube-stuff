@@ -1,3 +1,4 @@
+// NOTE: You will need the latest dev build in order to see blocks properly
 // To add: Set map MOTD to include +hold then every block you change to will update your model.
 // E.g, /map motd +hold
 // NOTE: Does not work if you are not a human or hold model
@@ -18,8 +19,6 @@ using BlockID = System.UInt16;
 
 namespace Core {
     public class HoldBlocks : Plugin {
-        public static PlayerExtList dailyList;
-        
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.2.8"; } }
         public override string name { get { return "HoldBlocks"; } }
@@ -43,8 +42,7 @@ namespace Core {
 
             foreach (Player pl in players) {
         	    // Get MOTD of map
-                LevelConfig cfg = LevelInfo.GetConfig(pl.level.name, out pl.level);
-                if (!cfg.MOTD.ToLower().Contains("+hold") && !Server.Config.MOTD.Contains("+hold")) continue;
+                if (!pl.level.Config.MOTD.ToLower().Contains("+hold") && !Server.Config.MOTD.Contains("+hold")) continue;
                 if (!pl.Model.Contains("human") && !pl.Model.Contains("hold") && !pl.Model.Contains("-own")) continue;
         	    BlockID block = pl.GetHeldBlock();
                 string holding = Block.GetName(pl, block);
