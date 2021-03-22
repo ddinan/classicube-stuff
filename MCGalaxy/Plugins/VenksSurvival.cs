@@ -58,8 +58,9 @@ using MCGalaxy.Scripting;
 using MCGalaxy.SQL;
 using MCGalaxy.Tasks;
 using BlockID = System.UInt16;
+
 namespace MCGalaxy {
-    public class PvP: Plugin_Simple {
+    public class PvP: Plugin {
         public override string name {
             get {
                 return "&aVenk's Survival%S"; // To unload: /punload Survival
@@ -87,7 +88,7 @@ namespace MCGalaxy {
         bool blockMining = true; // Enable (true) or disable (false) mining blocks (only works with deletable off!)
         bool economy = false; // Enable (true) or disable (false) rewards when killing someone
         int moneyStolen = 0; // If economy = true, money stolen when you kill someone
-        public static string path = "./plugins/PvP/"; // Plugin path
+        public static string path = "./plugins/VenksSurvival/"; // Plugin path
         
         // Extra plugin integrations
         public static bool useGoodlyEffects = false; // Enable (true) or disable (false) GoodlyEffects integration
@@ -195,7 +196,7 @@ namespace MCGalaxy {
             foreach(Player p in online) {
                 if (maplist.Contains(p.level.name)) {
                     if (p.invincible) {
-                        break;
+                        continue;
                     }
                     ushort x = (ushort)(p.Pos.X / 32);
                     ushort y = (ushort)((p.Pos.Y - Entities.CharacterHeight) / 32);
@@ -510,7 +511,7 @@ namespace MCGalaxy {
                         if (players[i, 0] == p.truename) {
                             int a = int.Parse(players[i, 1]);
                             if (a.ToString() == MaxHp) {
-                                break;
+                                continue;
                             }
                             players[i, 1] = (a + 1) + "";
                             SetHpIndicator(i, p);
@@ -678,10 +679,10 @@ namespace MCGalaxy {
                         if (toolstats[2] == "0") {
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 125) / toolSpeed;
+                            int speed = (blockSpeed * 200) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
-                            if (duration > TimeSpan.FromMilliseconds(speed)) { // 125ms per hit, leaves takes 2 hits so 250ms to break
+                            if (duration > TimeSpan.FromMilliseconds(speed)) { // 100ms per hit, leaves takes 2 hits so 200ms to break
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
@@ -691,10 +692,10 @@ namespace MCGalaxy {
                         } else {
                             int toolSpeed = Int32.Parse(toolstats[2]);
                             int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 125) / toolSpeed;
+                            int speed = (blockSpeed * 100) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
-                            if (duration > TimeSpan.FromMilliseconds(speed)) { // 125ms per hit, leaves takes 2 hits so 250ms to break
+                            if (duration > TimeSpan.FromMilliseconds(speed)) {
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
@@ -918,6 +919,7 @@ namespace MCGalaxy {
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
             p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 211, 0, true));
+            p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
             Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
             if (maplist.Contains(level.name)) {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
@@ -1159,7 +1161,7 @@ namespace MCGalaxy {
         public static void CheckInvisible(SchedulerTask task) {
             Player[] players = PlayerInfo.Online.Items;
             foreach(Player p in players) {
-                if (!p.Extras.GetBoolean("POTION_IS_INVISIBLE")) break;
+                if (!p.Extras.GetBoolean("POTION_IS_INVISIBLE")) continue;
                 // Timer
 
                 string time = p.Extras.GetString("POTION_INV_TIMER");
@@ -1181,7 +1183,7 @@ namespace MCGalaxy {
         public static void CheckSpeed(SchedulerTask task) {
             Player[] players = PlayerInfo.Online.Items;
             foreach(Player p in players) {
-                if (!p.Extras.GetBoolean("POTION_IS_FAST")) break;
+                if (!p.Extras.GetBoolean("POTION_IS_FAST")) continue;
                 if (p.Extras.GetBoolean("POTION_IS_JUMP")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
                 else p.Send(Packet.Motd(p, p.level.Config.MOTD + " horspeed=3.75"));
                 // Timer
@@ -1202,7 +1204,7 @@ namespace MCGalaxy {
         public static void CheckJump(SchedulerTask task) {
             Player[] players = PlayerInfo.Online.Items;
             foreach(Player p in players) {
-                if (!p.Extras.GetBoolean("POTION_IS_JUMP")) break;
+                if (!p.Extras.GetBoolean("POTION_IS_JUMP")) continue;
                 if (p.Extras.GetBoolean("POTION_IS_FAST")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
                 else p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4"));
                 p.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight            	
@@ -1345,7 +1347,7 @@ namespace MCGalaxy {
             foreach (Player pl in online) {
                 if (PvP.maplist.Contains(p.level.name)) {
                     if (pl.invincible) {
-                        break;
+                        continue;
                     }
             
                     for (int i = 0; i < 100; i++) {
@@ -1367,8 +1369,6 @@ namespace MCGalaxy {
     }
 
     public sealed class CmdSafeZone: Command2 {
-        string path = "./plugins/PvP/";
-
         public override string name {
             get {
                 return "SafeZone";
@@ -1422,10 +1422,10 @@ namespace MCGalaxy {
         }
 
         bool addSafeZone(Player p, Vec3S32[] marks, object state, BlockID block) {
-            FileInfo filedir = new FileInfo(path + "safezones" + p.level.name + ".txt");
+            FileInfo filedir = new FileInfo(PvP.path + "safezones" + p.level.name + ".txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(path + "safezones" + p.level.name + ".txt", true)) {
+            using(StreamWriter file = new StreamWriter(PvP.path + "safezones" + p.level.name + ".txt", true)) {
                 file.WriteLine(marks.GetValue(0) + ";" + marks.GetValue(1));
             }
 
@@ -1440,8 +1440,6 @@ namespace MCGalaxy {
     }
 
     public sealed class CmdWeapon: Command2 {
-        string path = "./plugins/PvP/";
-
         public override string name {
             get {
                 return "Weapon";
@@ -1523,10 +1521,10 @@ namespace MCGalaxy {
         }
 
         void createWeapon(string id, string damage, string durability) {
-            FileInfo filedir = new FileInfo(path + "weapons.txt");
+            FileInfo filedir = new FileInfo(PvP.path + "weapons.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(path + "weapons.txt", true)) {
+            using(StreamWriter file = new StreamWriter(PvP.path + "weapons.txt", true)) {
                 file.WriteLine(id + ";" + damage + ";" + durability);
             }
         }
@@ -1545,7 +1543,7 @@ namespace MCGalaxy {
                 return;
             }
 
-            string filepath = path + "weapons/" + args[2] + "/" + args[1] + ".txt";
+            string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
             FileInfo filedir = new FileInfo(filepath);
             filedir.Directory.Create();
             using(StreamWriter file = new StreamWriter(filepath, true)) {
@@ -1557,7 +1555,7 @@ namespace MCGalaxy {
             Player[] online = PlayerInfo.Online.Items;
             foreach(Player pl in online) {
                 if (pl.truename == args[1]) {
-                    string filepath = path + "weapons/" + args[2] + "/" + args[1] + ".txt";
+                    string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
 
                     if (File.Exists(filepath)) {
                         File.WriteAllText(filepath, string.Empty);
@@ -1575,8 +1573,6 @@ namespace MCGalaxy {
     }
 
     public sealed class CmdTool: Command2 {
-        string path = "./plugins/PvP/";
-
         public override string name {
             get {
                 return "Tool";
@@ -1661,10 +1657,10 @@ namespace MCGalaxy {
         }
 
         void createTool(string id, string damage, string durability, string type) {
-            FileInfo filedir = new FileInfo(path + "tools.txt");
+            FileInfo filedir = new FileInfo(PvP.path + "tools.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(path + "tools.txt", true)) {
+            using(StreamWriter file = new StreamWriter(PvP.path + "tools.txt", true)) {
                 file.WriteLine(id + ";" + damage + ";" + durability + ";" + type);
             }
         }
@@ -1683,7 +1679,7 @@ namespace MCGalaxy {
                 return;
             }
 
-            string filepath = path + "tools/" + args[2] + "/" + args[1] + ".txt";
+            string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
             FileInfo filedir = new FileInfo(filepath);
             filedir.Directory.Create();
             using(StreamWriter file = new StreamWriter(filepath, true)) {
@@ -1695,7 +1691,7 @@ namespace MCGalaxy {
             Player[] online = PlayerInfo.Online.Items;
             foreach(Player pl in online) {
                 if (pl.truename == args[1]) {
-                    string filepath = path + "tools/" + args[2] + "/" + args[1] + ".txt";
+                    string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
 
                     if (File.Exists(filepath)) {
                         File.WriteAllText(filepath, string.Empty);
@@ -1713,8 +1709,6 @@ namespace MCGalaxy {
     }
 
     public sealed class CmdBlock: Command2 {
-        string path = "./plugins/PvP/";
-
         public override string name {
             get {
                 return "Block";
@@ -1788,10 +1782,10 @@ namespace MCGalaxy {
         }
 
         void createBlock(string id, string tool, string durability) {
-            FileInfo filedir = new FileInfo(path + "blocks.txt");
+            FileInfo filedir = new FileInfo(PvP.path + "blocks.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(path + "blocks.txt", true)) {
+            using(StreamWriter file = new StreamWriter(PvP.path + "blocks.txt", true)) {
                 file.WriteLine(id + ";" + tool + ";" + durability);
             }
         }
@@ -2131,7 +2125,7 @@ namespace MCGalaxy {
             p.Message("%T/SilentHold [block] <locked>");
             p.Message("%HMakes you hold the given block in your hand");
             p.Message("%H  <locked> optionally prevents you from changing it");
-			      p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
+			p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
         }
 	}
 }
