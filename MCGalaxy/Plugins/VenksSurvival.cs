@@ -14,6 +14,7 @@
   
   IF YOU WANT WEAPONS (DO THIS FOR EACH WEAPON):
   1. Type /weapon add [id] [damage] [durability].
+  2. Type /weapon give [player] [level name] [weapon name NOT ID].
   
   IF YOU WANT TOOLS (DO THIS FOR EACH TOOL):
   1. Type /tool add [id] [speed] [durability] [type].
