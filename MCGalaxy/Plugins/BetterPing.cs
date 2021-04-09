@@ -7,7 +7,7 @@ using System;
 using MCGalaxy.Events.PlayerEvents;
 
 namespace MCGalaxy {
-	public class BetterPing : Plugin_Simple {
+	public class BetterPing : Plugin {
 		public override string creator { get { return "Venk"; } }
 		public override string MCGalaxy_Version { get { return "1.9.1.3"; } }
 		public override string name { get { return "BetterPing"; } }
