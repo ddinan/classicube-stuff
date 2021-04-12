@@ -6,7 +6,7 @@ using MCGalaxy.Tasks;
 
 namespace MCGalaxy {
 
-    public class Compass : Plugin_Simple {
+    public class Compass : Plugin {
         public override string creator { get { return "VenkSociety"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "Compass"; } }
