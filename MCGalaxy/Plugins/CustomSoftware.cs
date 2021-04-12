@@ -6,7 +6,7 @@ using MCGalaxy.Commands;
 
 namespace MCGalaxy {
 
-    public class CustomSoftware : Plugin_Simple {
+    public class CustomSoftware : Plugin {
         public override string creator { get { return "VenkSociety"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "CustomSoftware"; } }
