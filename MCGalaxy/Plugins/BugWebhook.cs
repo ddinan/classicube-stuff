@@ -11,7 +11,7 @@ using MCGalaxy;
 using Newtonsoft.Json;
 
 namespace Core {
-	public class BugWebhook : Plugin_Simple {
+	public class BugWebhook : Plugin {
         
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
