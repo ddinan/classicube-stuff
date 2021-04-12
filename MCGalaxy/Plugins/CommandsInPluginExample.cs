@@ -2,7 +2,7 @@ using System;
 using MCGalaxy;
 
 namespace Core {
-    public class CommandsInPluginExample : Plugin_Simple {  
+    public class CommandsInPluginExample : Plugin {  
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.2.8"; } }
         public override string name { get { return "CommandsInPluginExample"; } }
