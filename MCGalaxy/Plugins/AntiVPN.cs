@@ -10,7 +10,7 @@ using MCGalaxy.Events;
 using MCGalaxy.Events.PlayerEvents;
 
 namespace MCGalaxy {
-    public class AntiVPN : Plugin_Simple {
+    public class AntiVPN : Plugin {
 		public static PlayerList whitelist;
         public override string creator { get { return "VenkSociety"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
