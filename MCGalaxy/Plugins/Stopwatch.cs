@@ -8,7 +8,7 @@ using MCGalaxy.Tasks;
 
 namespace MCGalaxy {
 
-    public class StopwatchPlugin : Plugin_Simple {
+    public class StopwatchPlugin : Plugin {
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "Stopwatch"; } }
