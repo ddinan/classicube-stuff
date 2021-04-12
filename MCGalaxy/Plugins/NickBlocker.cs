@@ -4,7 +4,7 @@ using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Events;
 
 namespace Core {
-	public class NickBlocker : Plugin_Simple {
+	public class NickBlocker : Plugin {
 		public override string creator { get { return "Venk"; } }
 		public override string name { get { return "NickBlocker"; } }
 		public override string MCGalaxy_Version { get { return "1.9.2.2"; } }
