@@ -8,7 +8,7 @@ using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Events;
 
 namespace Core {
-    public class DailyBonus : Plugin_Simple {
+    public class DailyBonus : Plugin {
         public static PlayerExtList dailyList;
         
         public override string creator { get { return "Venk"; } }

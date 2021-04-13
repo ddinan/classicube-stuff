@@ -9,7 +9,7 @@ using MCGalaxy.SQL;
 using MCGalaxy.Tasks;
 
 namespace Core {
-    public class TimeAFK : Plugin_Simple {
+    public class TimeAFK : Plugin {
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.2.5"; } }
         public override string name { get { return "TimeAFK"; } }

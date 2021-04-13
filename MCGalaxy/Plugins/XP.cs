@@ -1,5 +1,5 @@
-reference System.Core.dll
-reference Cmdhelpers.dll
+//reference System.Core.dll
+//reference Cmdhelpers.dll
 	
 /* 
     You will need to replace all "secretcode" strings with a random code.
@@ -16,7 +16,7 @@ using MCGalaxy.Commands;
 using MCGalaxy.SQL;
 
 namespace MCGalaxy {
-    public class XP : Plugin_Simple {
+    public class XP : Plugin {
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "XP"; } }

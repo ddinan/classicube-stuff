@@ -1,4 +1,4 @@
-reference System.Core.dll
+﻿//reference System.Core.dll
 	
 /* NOTE:
  	- You need to replace all "NameOfGamemode" strings with the name of your gamemode. E.g "SkyWars", "TNTRun" etc
@@ -55,7 +55,7 @@ namespace MCGalaxy.Games {
 		}
 	}
 	
-	public sealed class NameOfGamemodePlugin : Plugin_Simple {
+	public sealed class NameOfGamemodePlugin : Plugin {
 		public override string creator { get { return "Venk"; } }
 		public override string MCGalaxy_Version { get { return "1.9.1.5"; } }
 		public override string name { get { return "NameOfGamemode"; } }

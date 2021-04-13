@@ -1,4 +1,4 @@
-reference System.dll
+//reference System.dll
 
 // Credit to UnknownShadow200 for some of the code
 using System;
@@ -10,10 +10,10 @@ using MCGalaxy.Events;
 using MCGalaxy.Events.PlayerEvents;
 
 namespace MCGalaxy {
-    public class AntiVPN : Plugin_Simple {
+    public class AntiVPN : Plugin {
 		public static PlayerList whitelist;
-        public override string creator { get { return "VenkSociety"; } }
-        public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
+        public override string creator { get { return "Venk"; } }
+        public override string MCGalaxy_Version { get { return "1.9.3.0"; } }
         public override string name { get { return "AntiVPN"; } }
 		
         static Dictionary<string, byte> ipList = new Dictionary<string, byte>();
@@ -51,7 +51,7 @@ namespace MCGalaxy {
             try {
                 string result = null;
                 using (WebClient client = new WebClient()) {
-                    string url = "http://check.getipintel.net/check.php?ip=" + arg + "&contact=VenkSociety@gmail.com&flags=m";
+                    string url = "http://check.getipintel.net/check.php?ip=" + arg + "&contact=fakeemailacc0unt1234521@gmail.com&flags=m";
                     result = client.DownloadString(url);
 				        }
 				

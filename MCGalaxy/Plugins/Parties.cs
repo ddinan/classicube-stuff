@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using MCGalaxy;
@@ -331,7 +331,7 @@ namespace MCGalaxy {
         }
     }
 	
-    public class Parties : Plugin_Simple {
+    public class Parties : Plugin {
         public override string creator { get { return "Venk"; } }
         public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
         public override string name { get { return "Parties"; } }

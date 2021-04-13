@@ -1,4 +1,4 @@
-/* 
+﻿/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -821,7 +821,7 @@ namespace MCGalaxy {
                                                             if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1")) {
                                                                 if (pl.money > moneyStolen - 1) {
                                                                     p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-                                                                    Player.Message(pl, p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
+                                                                    pl.Message(p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
                                                                     p.SetMoney(p.money + moneyStolen);
                                                                     pl.SetMoney(pl.money - moneyStolen);
 

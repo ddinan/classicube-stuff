@@ -5,7 +5,7 @@ using MCGalaxy.DB;
 using MCGalaxy.SQL;
 
 namespace MCGalaxy {
-	public class FavouriteMap : Plugin_Simple {
+	public class FavouriteMap : Plugin {
 		public override string name { get { return "FavouriteMap"; } }
 		public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
 		public override string creator { get { return "Venk"; } }
