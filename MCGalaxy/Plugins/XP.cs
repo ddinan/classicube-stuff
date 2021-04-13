@@ -1,5 +1,4 @@
 //reference System.Core.dll
-//reference Cmdhelpers.dll
 	
 /* 
     You will need to replace all "secretcode" strings with a random code.
@@ -18,7 +17,7 @@ using MCGalaxy.SQL;
 namespace MCGalaxy {
     public class XP : Plugin {
         public override string creator { get { return "Venk"; } }
-        public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
+        public override string MCGalaxy_Version { get { return "1.9.3.0"; } }
         public override string name { get { return "XP"; } }
 
         public override void Load(bool startup) {
@@ -38,7 +37,7 @@ namespace MCGalaxy {
   
 
         void InitDB() {
-            Database.Backend.CreateTable("Levels", createLevels);
+            Database.CreateTable("Levels", createLevels);
         }
     }
     
@@ -279,7 +278,7 @@ namespace MCGalaxy {
 		            Player pl = PlayerInfo.FindExact(args[1]); // Find person receiving XP
 		            int curLevel = 0;
 		            if (pl != null && curLevel != newLevel) pl.Message("You are now level %b" + newLevel);
-		            Database.Backend.AddRow("Levels", "Name, XP, Level", args[1], args[2], newLevel);
+		            Database.AddRow("Levels", "Name, XP, Level", args[1], args[2], newLevel);
 					return;
 				} else {
 		            int curXP = int.Parse(rows[0][1]); // First row, second column
@@ -289,8 +288,8 @@ namespace MCGalaxy {
 		            int curLevel = GetInt(rows[0][2]);
 		            if (pl != null && curLevel != newLevel) pl.Message("You are now level %b" + newLevel);
 		                            
-		            Database.Backend.UpdateRows("Levels", "XP=@1", "WHERE NAME=@0", args[1], curXP + number); // Give XP
-		            Database.Backend.UpdateRows("Levels", "Level=@1", "WHERE NAME=@0", args[1], newLevel); // Give level
+		            Database.UpdateRows("Levels", "XP=@1", "WHERE NAME=@0", args[1], curXP + number); // Give XP
+		            Database.UpdateRows("Levels", "Level=@1", "WHERE NAME=@0", args[1], newLevel); // Give level
 				}
 	        }
             	
