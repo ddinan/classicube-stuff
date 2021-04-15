@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -36,12 +36,52 @@ namespace MCGalaxy {
 
         public override void Load(bool startup) {
             Command.Register(new CmdStopwatch());
+            OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
+            
         }
 
        
         public override void Unload(bool shutdown) {
             Command.Unregister(Command.Find("Stopwatch"));
+            OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
         }
+		
+		void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
+		    StopwatchPlugin.StopwatchData timer = StopwatchPlugin.Get(p);
+		    
+		    int finishMin = 0;
+			int finishSec = 0;
+			int finishMS  = 0;
+			
+			if (timer.active) {
+				finishMin = timer.runMin;
+				finishSec = timer.runSec;
+				finishMS  = timer.runMS;
+			} else {
+				return;
+			}
+			
+			string codeMin = "";
+			string codeSec = "";
+			string codeMS  = "";
+			
+			if (finishMin < 10) {
+				codeMin = "0" + finishMin.ToString();
+			} else if (finishMin < 100) {
+				codeMin = finishMin.ToString();
+			} else {
+				codeMin = "99";
+			}
+			if (finishSec < 10) {
+				codeSec = "0" + finishSec.ToString();
+			} else {
+				codeSec = finishSec.ToString();
+			}
+			codeMS = finishMS.ToString();
+			timer.runStop = true;
+			
+			p.SendCpeMessage(CpeMessageType.BottomRight2, "");
+		}
     }
 
     public sealed class CmdStopwatch : Command2 {
@@ -104,14 +144,31 @@ namespace MCGalaxy {
 			
 			string codeTime = codeMin + codeSec + codeMS;
 			int intCodeTime = int.Parse(codeTime); // Create 5 digit code of the time the player finished with
-
-			p.Message("%6You finished with a time of: %a" + finishMin + ":" + finishSec + ":" + finishMS);
+			
+			if (SpecifiedCode) {
+    			Player[] players = PlayerInfo.Online.Items;
+                foreach (Player pl in players) {
+    			    if (pl.level != p.level) break;
+    			    if (pl == p) {
+    			        p.Message("%aYou finished with a time of: %b" + finishMin + ":" + finishSec + ":" + finishMS + "%a.");
+    			    }
+    			    
+    			    else {
+                        pl.Message("%b" + p.truename + " %afinished with a time of %b" + finishMin + ":" + finishSec + ":" + finishMS + "%a.");
+    			    }
+                }
+			}
+			
+			else {
+			    p.Message("%aYou finished with a time of: %b" + finishMin + ":" + finishSec + ":" + finishMS + "%a.");
+			}
+			
 			p.SendCpeMessage(CpeMessageType.BottomRight2, "");
 		}
         
         
         void ResetTimer(Player p, bool SpecifiedCode) {
-            if (!SpecifiedCode && p.Extras.GetBoolean("PKR_STARTED_CODE")) { p.Message("%f╒ %c∩αΓ: %7You cannot resetp a predefined stopwatch."); return; }
+            if (!SpecifiedCode && p.Extras.GetBoolean("PKR_STARTED_CODE")) { p.Message("%f╒ %c∩αΓ: %7You cannot reset a predefined stopwatch."); return; }
 			StopwatchPlugin.StopwatchData timer = StopwatchPlugin.Get(p);
 			if (!timer.active) return;
             if (timer.runStop) return;
