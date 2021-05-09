@@ -16,21 +16,21 @@ namespace MCGalaxy.Commands.CPE {
             string[] args = message.SplitSpaces(2);
             
             if (args[0].Length > 0) {
-                if (args[0] == "level" || args[0] == "global") {
-                    if (args[0] == "level")  {
+                if (args[0].CaselessEq("level") || args[0].CaselessEq("global")) {
+                    if (args[0].CaselessEq("level"))  {
                         if (args[1].Length > 0) {
                             if (!HasExtraPerm(p, data.Rank, 1)) return;
-                            foreach (Player pl in Player.players) {
+                            foreach (Player pl in PlayerInfo.Online.Items) {
                                 if (pl.level != p.level) continue;            
                                 pl.SendCpeMessage(CpeMessageType.Announcement, args[1]);
                             }
                         } else { Help(p); }
                     }
 
-                    else if (args[0] == "global") {
+                    else if (args[0].CaselessEq("global")) {
                         if (args[1].Length > 0) {
                             if (!HasExtraPerm(p, data.Rank, 2)) return;
-                            foreach (Player pl in Player.players) {   
+                            foreach (Player pl in PlayerInfo.Online.Items) {   
                                 pl.SendCpeMessage(CpeMessageType.Announcement, args[1]);
                             }
                         }
@@ -48,9 +48,9 @@ namespace MCGalaxy.Commands.CPE {
         }
  
         public override void Help(Player p) {
-            Player.Message(p, "%T/Announce [message] %H- Displays a message on your screen.");
-            Player.Message(p, "%T/Announce level [message] %H- Displays a message on players' screens in your level.");
-            Player.Message(p, "%T/Announce global [message] %H- Displays a message on players' screens globally.");
+            p.Message("%T/Announce [message] %H- Displays a message on your screen.");
+            p.Message("%T/Announce level [message] %H- Displays a message on players' screens in your level.");
+            p.Message("%T/Announce global [message] %H- Displays a message on players' screens globally.");
         }
     }
 }
