@@ -1,4 +1,4 @@
-﻿/* 
+/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -14,7 +14,6 @@
   
   IF YOU WANT WEAPONS (DO THIS FOR EACH WEAPON):
   1. Type /weapon add [id] [damage] [durability].
-  2. Type /weapon give [player] [level name] [weapon name NOT ID].
   
   IF YOU WANT TOOLS (DO THIS FOR EACH TOOL):
   1. Type /tool add [id] [speed] [durability] [type].
@@ -38,7 +37,6 @@
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
   2. Mobs.
   3. Hunger?
-  4. Player inventories
   
  */
 
@@ -47,6 +45,7 @@ using System.Collections.Generic;
 using System.IO;
 
 using MCGalaxy;
+using MCGalaxy.Blocks;
 using MCGalaxy.Bots;
 using MCGalaxy.Commands;
 using MCGalaxy.Events;
@@ -74,7 +73,7 @@ namespace MCGalaxy {
         }
         public override string creator {
             get {
-                return "Venk and Sirvoid";
+                return "Venk and Sirvoid"; // Credit to FaeEmpress for most of the mob code
             }
         }
 
@@ -88,9 +87,28 @@ namespace MCGalaxy {
         bool drowning = true; // Enable (true) or disable (false) drowning
         bool blockMining = true; // Enable (true) or disable (false) mining blocks (only works with deletable off!)
         bool economy = false; // Enable (true) or disable (false) rewards when killing someone
+        // NOTE: Mobs are extremely glitchy
+        bool mobsEnabled = false; // Enable (true) or disable (false) mobs EXPERIMENTAL: USE WITH CAUTION
         int moneyStolen = 0; // If economy = true, money stolen when you kill someone
         public static string path = "./plugins/VenksSurvival/"; // Plugin path
-        
+
+        public int MaxMobs = 32;
+        public int init = 0;
+        public int lvlwidth = 0;
+        public int lvllength = 0;
+        public int lvlheight = 0;
+
+        List < Mob > mobs = new List < Mob > ();
+        string[] mobtypes = {
+            "chicken",
+            "pig",
+            "sheep",
+            "zombie",
+            "creeper",
+            "skeleton",
+            "spider"
+        };
+
         // Extra plugin integrations
         public static bool useGoodlyEffects = false; // Enable (true) or disable (false) GoodlyEffects integration
 
@@ -111,11 +129,13 @@ namespace MCGalaxy {
             initDB();
 
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
+            OnPlayerClickEvent.Register(HandleMobClick, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
-            if (drowning == true) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
-            if (regeneration == true) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
+            if (drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
+            if (regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
             //Server.MainScheduler.QueueRepeat(HandleFall, null, TimeSpan.FromMilliseconds(1)); 
+            if (mobsEnabled) Server.MainScheduler.QueueRepeat(MobsCallback, null, TimeSpan.FromMilliseconds(100));
 
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
@@ -126,6 +146,7 @@ namespace MCGalaxy {
             Command.Register(new CmdDropBlock());
             Command.Register(new CmdPickupBlock());
             Command.Register(new CmdSilentHold());
+            //if (mobsEnabled) Command.Register(new CmdSpawnMob());
 
             Player[] online = PlayerInfo.Online.Items;
             foreach(Player p in online) {
@@ -142,10 +163,23 @@ namespace MCGalaxy {
         }
 
         public override void Unload(bool shutdown) {
+            // Unload mobs
+            Level[] levels = LevelInfo.Loaded.Items;
+            foreach(Level lvl in levels) {
+                int i;
+                for (i = 0; i < mobs.Count; i++) {
+                    mobs[i].deleteClientEntity();
+                    Remove(mobs[i], lvl.name);
+                }
+            }
+
+            // Unload events
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
+            if (mobsEnabled) OnPlayerClickEvent.Unregister(HandleMobClick);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
 
+            // Unload commands
             Command.Unregister(Command.Find("PvP"));
             Command.Unregister(Command.Find("SafeZone"));
             Command.Unregister(Command.Find("Weapon"));
@@ -155,6 +189,7 @@ namespace MCGalaxy {
             Command.Unregister(Command.Find("DropBlock"));
             Command.Unregister(Command.Find("PickupBlock"));
             Command.Unregister(Command.Find("SilentHold"));
+            //Command.Unregister(Command.Find("SpawnMob"));
         }
 
         ColumnDesc[] createPotions = new ColumnDesc[] {
@@ -170,8 +205,49 @@ namespace MCGalaxy {
                 new ColumnDesc("Blindness", ColumnType.Int32),
         };
 
+        ColumnDesc[] createInventories = new ColumnDesc[] {
+            new ColumnDesc("Name", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot1", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot2", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot3", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot4", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot5", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot6", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot7", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot8", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot9", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot10", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot11", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot12", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot13", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot14", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot15", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot16", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot17", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot18", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot19", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot20", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot21", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot22", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot23", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot24", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot25", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot26", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot27", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot28", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot29", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot30", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot31", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot32", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot33", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot34", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot35", ColumnType.VarChar, 16),
+                new ColumnDesc("Slot36", ColumnType.VarChar, 16),
+        };
+
         void initDB() {
             Database.CreateTable("Potions", createPotions);
+            Database.CreateTable("Inventories3", createInventories);
         }
 
         void loadMaps() {
@@ -182,12 +258,17 @@ namespace MCGalaxy {
                         maplist.Add(line);
                     }
                 }
-            }
-            
-            else File.Create(path + "maps.txt").Dispose();
+            } else File.Create(path + "maps.txt").Dispose();
         }
 
         #region Drowning
+
+        void KillPlayer(Player p, int i) {
+            p.HandleDeath(Block.Water);
+            p.Extras.Remove("DROWNING");
+            players[i, 1] = MaxHp;
+            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+        }
 
         void HandleDrown(SchedulerTask task) {
             if (survivalDeath == false) {
@@ -214,6 +295,7 @@ namespace MCGalaxy {
                         int number = p.Extras.GetInt("DROWNING");
                         p.Extras["DROWNING"] = number + 1;
                         int air = p.Extras.GetInt("DROWNING");
+                        // (10 - number) + 1)
                         if (air == 1) {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooooooo");
                         }
@@ -254,240 +336,140 @@ namespace MCGalaxy {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 12) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 13) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 14) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 15) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 16) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 17) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 18) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 19) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 20) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 21) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 22) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 23) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 24) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 25) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 26) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 27) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 28) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 29) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
 
                                     if (air == 30) {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
-                                        if (a <= 1) {
-                                            p.HandleDeath(Block.Water);
-                                            p.Extras.Remove("DROWNING");
-                                            players[i, 1] = MaxHp;
-                                            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-                                        }
+                                        if (a <= 1) KillPlayer(p, i);
                                     }
                                 }
                             }
@@ -501,9 +483,9 @@ namespace MCGalaxy {
         }
 
         #endregion
-        
+
         #region Regeneration
-        
+
         void HandleRegeneration(SchedulerTask task) {
             Player[] online = PlayerInfo.Online.Items;
             foreach(Player p in online) {
@@ -521,7 +503,7 @@ namespace MCGalaxy {
                 }
             }
         }
-        
+
         #endregion
 
         #region Fall damage WIP
@@ -631,6 +613,87 @@ namespace MCGalaxy {
         #endregion
 
         #region Mining blocks
+        
+        int FindSlotFor(string[] row, string name) {
+            for (int col = 1; col <= 36; col++) {
+                string contents = row[col];
+                if (contents == "0" || contents.StartsWith(name)) return col;
+            }
+            return 0;
+        }
+
+        void SaveBlock(Player p, BlockID block) {
+            string name = Block.GetName(p, block);
+            
+            p.Message("You mined 1x " + name);
+                
+            List <string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+            if (pRows.Count == 0) {
+                p.Message("You did not have anything saved.");
+                Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
+                "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, name + "(0)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                return;
+            } else {
+                string s1 = pRows[0][1].ToString();
+                string s2 = pRows[0][2].ToString();
+                string s3 = pRows[0][3].ToString();
+                string s4 = pRows[0][4].ToString();
+                string s5 = pRows[0][5].ToString();
+                string s6 = pRows[0][6].ToString();
+                string s7 = pRows[0][7].ToString();
+                string s8 = pRows[0][8].ToString();
+                string s9 = pRows[0][9].ToString();
+                string s10 = pRows[0][10].ToString();
+                
+                string s11 = pRows[0][11].ToString();
+                string s12 = pRows[0][12].ToString();
+                string s13 = pRows[0][13].ToString();
+                string s14 = pRows[0][14].ToString();
+                string s15 = pRows[0][15].ToString();
+                string s16 = pRows[0][16].ToString();
+                string s17 = pRows[0][17].ToString();
+                string s18 = pRows[0][18].ToString();
+                string s19 = pRows[0][19].ToString();
+                string s20 = pRows[0][20].ToString();
+                
+                string s21 = pRows[0][21].ToString();
+                string s22 = pRows[0][22].ToString();
+                string s23 = pRows[0][23].ToString();
+                string s24 = pRows[0][24].ToString();
+                string s25 = pRows[0][25].ToString();
+                string s26 = pRows[0][26].ToString();
+                string s27 = pRows[0][27].ToString();
+                string s28 = pRows[0][28].ToString();
+                string s29 = pRows[0][29].ToString();
+                string s30 = pRows[0][30].ToString();
+                
+                string s31 = pRows[0][31].ToString();
+                string s32 = pRows[0][32].ToString();
+                string s33 = pRows[0][33].ToString();
+                string s34 = pRows[0][34].ToString();
+                string s35 = pRows[0][35].ToString();
+                string s36 = pRows[0][36].ToString();
+                
+                int column = FindSlotFor(pRows[0], name);
+                
+                p.Message("Column: " + column);
+
+                if (column == 0) {
+                    p.Message("Your inventory is full.");
+                    return;
+                }
+                
+                
+                int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(name, "").Replace("(", "").Replace(")", "")) + 1;
+                
+                //p.Message("New count: " + newCount);
+                
+                Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, name + "(" + newCount.ToString() + ")");
+                return;
+            }
+        }
 
         void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
             if (button == MouseButton.Left) {
@@ -673,6 +736,7 @@ namespace MCGalaxy {
                         // Assign speed of tool based on tool type
                         // Get block durability, times by 125 then divide by the speed of the tool
                         if (blockstats[2] == "0") {
+                            SaveBlock(p, clickedBlock);
                             p.level.UpdateBlock(p, x, y, z, Block.Air);
                             return;
                         }
@@ -680,10 +744,11 @@ namespace MCGalaxy {
                         if (toolstats[2] == "0") {
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 200) / toolSpeed;
+                            int speed = (blockSpeed * 175) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             if (duration > TimeSpan.FromMilliseconds(speed)) { // 100ms per hit, leaves takes 2 hits so 200ms to break
+                                SaveBlock(p, clickedBlock);
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
@@ -697,6 +762,7 @@ namespace MCGalaxy {
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             if (duration > TimeSpan.FromMilliseconds(speed)) {
+                                SaveBlock(p, clickedBlock);
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
@@ -713,12 +779,12 @@ namespace MCGalaxy {
         }
 
         #endregion
-        
+
         #region Inventories
-        
+
         //string directory = "text/inventory/" + p.name + "/";
         //if (!Directory.Exists(directory)) { Directory.CreateDirectory(directory); }
-        
+
         #endregion
 
         #region PvP
@@ -794,11 +860,11 @@ namespace MCGalaxy {
                                                         if (weaponstats[0] != "0") {
                                                             damage = Int32.Parse(weaponstats[1]);
                                                             players[i, 1] = (a - damage) + "";
+                                                        } else players[i, 1] = (a - 1) + "";
+
+                                                        if (a >= 0) {
+                                                            p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
                                                         }
-                                                        
-                                                        else players[i, 1] = (a - 1) + "";
-                                                        
-                                                        if (a >= 0) { p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]); }
                                                         SetHpIndicator(i, pl);
 
                                                         if (a <= 0) { // If player killed them
@@ -918,9 +984,40 @@ namespace MCGalaxy {
             }
         }
 
+        void HandleMobClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
+            int i;
+            for (i = 0; i < mobs.Count; i++) {
+                if (mobs[i].ID == entity) {
+                    if (calculDistance(p.Pos, mobs[i]._pos) < 200)
+                        mobs[i].HurtByPlayer(1, p);
+                }
+            }
+            p.SendCpeMessage(CpeMessageType.Status1, "mobs.count=" + mobs.Count);
+        }
+
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
+            // Handle mobs
+            if (mobsEnabled) {
+                int m = 0;
+                Random rnd = new Random();
+                if (maplist.Contains(p.level.name) && init == 0) {
+                    lvlwidth = level.Width;
+                    lvllength = level.Length;
+                    lvlheight = level.Height - 2;
+                    for (m = 0; m < MaxMobs; m++) {
+                        spawnMob(rnd.Next(0, lvlwidth), lvlheight, rnd.Next(0, lvlheight), mobtypes[rnd.Next(0, 7)], p.level.name, (byte)(100 + m));
+                    }
+                    init = 1;
+                }
+                for (m = 0; m < mobs.Count; m++) {
+                    mobs[m].createClientEntity();
+                }
+            }
+
+            // Drop blocks hotkeys (del and backspace)
             p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 211, 0, true));
             p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
+
             Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
             if (maplist.Contains(level.name)) {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
@@ -1055,9 +1152,7 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            }
-            
-            else File.Create(path + "weapons.txt").Dispose();
+            } else File.Create(path + "weapons.txt").Dispose();
         }
 
         #endregion
@@ -1103,9 +1198,7 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            }
-            
-            else File.Create(path + "tools.txt").Dispose();
+            } else File.Create(path + "tools.txt").Dispose();
         }
 
         #endregion
@@ -1150,9 +1243,7 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            }
-            
-            else File.Create(path + "blocks.txt").Dispose();
+            } else File.Create(path + "blocks.txt").Dispose();
         }
 
         #endregion
@@ -1224,6 +1315,344 @@ namespace MCGalaxy {
             }
         }
         #endregion
+
+        #region Mobs
+
+        public void Remove(Mob m, string level) {
+            Mob newm = null;
+            Random rnd = new Random();
+            byte nextid;
+            nextid = m.ID;
+            mobs.Remove(m);
+            newm = spawnMob(rnd.Next(0, lvlwidth), lvlheight, rnd.Next(0, lvllength), mobtypes[rnd.Next(0, 7)], level, (byte)(nextid));
+            newm.createClientEntity();
+        }
+
+        Mob spawnMob(int X, int Y, int Z, string model, string map, byte sID) {
+            Mob mob = new Mob();
+            mob.SurvivalMob(X, Y, Z, model, map, (byte) sID, this);
+            mobs.Add(mob);
+            return mob;
+        }
+
+        public static void cmdSpawnMob(int x, int y, int z, string model, string map, PvP M) {
+            Mob mob = new Mob();
+            mob.SurvivalMob(x, y, z, model, map, (byte)(M.mobs.Count + 2 + 100), M);
+            M.mobs.Add(mob);
+            mob.createClientEntity();
+            //spawnMob(x,y,z,model,map,(byte)(mobs.Count+1));
+        }
+
+        void MobsCallback(SchedulerTask task) {
+            int i;
+            for (i = 0; i < mobs.Count; i++) {
+                mobs[i].Update();
+            }
+        }
+
+        public int calculDistance(Position a, Position b) {
+            float deltaX = a.X - b.X;
+            float deltaY = a.Y - b.Y;
+            float deltaZ = a.Z - b.Z;
+            int distance = (int) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+            return distance;
+        }
+        #endregion
+    }
+
+    public class Mob {
+        public byte ID = 0;
+        public int hp = 10;
+
+        private int _count;
+        private int _attackCount;
+
+        private PvP _survivalMobs;
+        public Position _pos;
+        public Position pos {
+            get {
+                return _pos;
+            }
+        }
+        protected Orientation _rot;
+        private bool _canJump = false;
+        protected bool _beenHurted = false;
+        private int _refreshClientCount = 0;
+        private int _swimCount = 0;
+        public string _model = "";
+        protected string _curMap = "";
+        protected int _speedX = 0;
+        protected int _speedY = 0;
+        protected int _speedZ = 0;
+        protected int _VelX = 0;
+        protected int _VelY = 0;
+        protected int _VelZ = 0;
+        protected int _width = 32;
+        protected int _height = 64;
+        public void SurvivalMob(int X, int Y, int Z, string model, string map, byte sID, PvP m) {
+            ID = sID;
+            _pos = new Position(X * 32, Y * 32, Z * 32);
+            _rot = new Orientation();
+            _model = model;
+            _curMap = map;
+            _speedX = 4;
+            _survivalMobs = m;
+        }
+        public bool HitTestMap() {
+            Level map = LevelInfo.FindExact(_curMap);
+            int minX = _pos.X / 32 - 2;
+            int maxX = _pos.X / 32 + 2;
+            int minY = _pos.Y / 32 - 2;
+            int maxY = _pos.Y / 32 + 2;
+            int minZ = _pos.Z / 32 - 2;
+            int maxZ = _pos.Z / 32 + 2;
+            for (int i = minY; i <= maxY; i++) {
+                for (int j = minX; j <= maxX; j++) {
+                    for (int k = minZ; k <= maxZ; k++) {
+                        if (!CollideType.IsSolid(map.CollideType((map.GetBlock((ushort)(j), (ushort)(i), (ushort)(k)))))) continue;
+                        bool touchX = _pos.X + _width > (j * 32) && _pos.X < ((j + 1) * 32);
+                        bool touchY = (_pos.Y - 32) + _height > (i * 32) && (_pos.Y - 32) < ((i + 1) * 32);
+                        bool touchZ = _pos.Z + _width > (k * 32) && _pos.Z < ((k + 1) * 32);
+                        if (touchX && touchY && touchZ) return true;
+                    }
+                }
+            }
+            return false;
+        }
+        public bool HitTestPlayer(Player p) {
+            bool touchX = _pos.X + _width + 16 > p.Pos.X + p.ModelBB.BlockMin.X && _pos.X - 16 < p.Pos.X + p.ModelBB.BlockMax.X;
+            bool touchY = _pos.Y + _height > p.Pos.Y + p.ModelBB.BlockMin.Y && _pos.Y < p.Pos.Y + p.ModelBB.BlockMax.Y;
+            bool touchZ = _pos.Z + _width + 16 > p.Pos.Z + p.ModelBB.BlockMin.Z && _pos.Z - 16 < p.Pos.Z + p.ModelBB.BlockMax.Z;
+            if (touchX && touchY && touchZ) return true;
+            return false;
+        }
+        public void createClientEntity() {
+            foreach(Player p in PlayerInfo.Online.Items) {
+                if (p.level.name != _curMap) continue;
+                p.Send(Packet.AddEntity(ID, "", _pos, _rot, true, true));
+                p.Send(Packet.ChangeModel(ID, _model, true));
+            }
+        }
+        public void deleteClientEntity() {
+            foreach(Player p in PlayerInfo.Online.Items) {
+                if (p.level.name == _curMap)
+                    p.Send(Packet.RemoveEntity(ID));
+            }
+        }
+        public void HurtByPlayer(int damage, Player p) {
+            // Knockback
+            int a = p.Pos.X - _pos.X;
+            int b = p.Pos.Z - _pos.Z;
+            int angle = (int)(Math.Atan2(b, a));
+            _VelX = -(int)(Math.Cos(angle) * 15);
+            _VelZ = -(int)(Math.Sin(angle) * 15);
+            _VelY = 11;
+            // Damage
+            Hurt(damage, p);
+            _beenHurted = true;
+        }
+        private void Hurt(int damage, Player p) {
+            hp -= damage;
+            if (hp <= 0) {
+                p.SetMoney(p.money + 5);
+                p.Message("Gained 5 %b" + Server.Config.Currency);
+                Remove(ID, p.level.name);
+                return;
+            }
+        }
+
+        public Player getClosestPlayerFrom(float x, float y, float z, string map) {
+            float deltaX;
+            float deltaY;
+            float deltaZ;
+            Player pl = null;
+            float lastd = 120000;
+
+            foreach(Player p in PlayerInfo.Online.Items) {
+                if (p.level.name == map) {
+                    deltaX = x - p.Pos.X;
+                    deltaY = y - p.Pos.Y;
+                    deltaZ = z - p.Pos.Z;
+                    float distance = (float) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+                    if (distance < lastd) {
+                        pl = p;
+                        lastd = distance;
+                    }
+                }
+            }
+            if (pl != null) {
+                return pl;
+            }
+            return null;
+        }
+
+        public int calculDistance(Position a, Position b) {
+            float deltaX = a.X - b.X;
+            float deltaY = a.Y - b.Y;
+            float deltaZ = a.Z - b.Z;
+            int distance = (int) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+            return distance;
+        }
+
+        void Remove(int id, string level) {
+            if (this.ID == id) {
+                deleteClientEntity();
+                _survivalMobs.Remove(this, this._curMap);
+            }
+        }
+
+        private void Attack() {
+            foreach(Player pl in PlayerInfo.Online.Items) {
+                if (pl.level.name == _curMap) {
+                    int dist = calculDistance(pl.Pos, _pos);
+                    if (dist > _width + _height) continue;
+                    if (HitTestPlayer(pl)) {
+                        pl.HandleDeath(Block.Stone, "@p %c" + "was killed by a " + _model, false, false);
+                    }
+                }
+            }
+        }
+
+        public int eUpdate() {
+            _attackCount++;
+            if (_attackCount > 10) {
+                _attackCount = 0;
+                Attack();
+            }
+
+            Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
+            if (p != null) {
+                int dist = calculDistance(p.Pos, _pos);
+                /*if (dist > 4096) {
+                    Remove(ID);
+                    return 1;
+                }*/
+                if (dist > 250) {
+                    _speedX = 0;
+                    _speedZ = 0;
+                    UpdatePosition();
+                    return 0;
+                }
+                int a = p.Pos.X - _pos.X;
+                int b = p.Pos.Z - _pos.Z;
+                int angle = (int)(Math.Atan2(b, a));
+                _speedX = (int)(Math.Cos(angle) * 5);
+                _speedZ = (int)(Math.Sin(angle) * 5);
+                Vec3F32 dir = new Vec3F32(a, 0, b);
+                dir = Vec3F32.Normalise(dir);
+                DirUtils.GetYawPitch(dir, out _rot.RotY, out _rot.HeadX);
+            }
+            UpdatePosition();
+            return 0;
+        }
+
+        public int aUpdate() {
+            Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
+            if (p != null) {
+                int dist = calculDistance(p.Pos, _pos);
+                /*if (dist > 2048) {
+                    Remove(ID);
+                    return 1;
+                }*/
+                if (dist > 256 || !_beenHurted) {
+                    _count++;
+                    if (_count > 100) {
+                        _count = 0;
+                        Random rnd = new Random();
+                        _speedX = rnd.Next(-2, 3);
+                        _speedZ = rnd.Next(-2, 3);
+                    }
+                    int a2 = _pos.X - _pos.X + _speedX;
+                    int b2 = _pos.Z - _pos.Z + _speedZ;
+                    Vec3F32 dir2 = new Vec3F32(a2, 0, b2);
+                    dir2 = Vec3F32.Normalise(dir2);
+                    DirUtils.GetYawPitch(dir2, out _rot.RotY, out _rot.HeadX);
+                    UpdatePosition();
+                    return 0;
+                }
+                int a = _pos.X - p.Pos.X;
+                int b = _pos.Z - p.Pos.Z;
+                int angle = (int)(Math.Atan2(b, a));
+                _speedX = (int)(Math.Cos(angle) * 5);
+                _speedZ = (int)(Math.Sin(angle) * 5);
+                Vec3F32 dir = new Vec3F32(a, 0, b);
+                dir = Vec3F32.Normalise(dir);
+                DirUtils.GetYawPitch(dir, out _rot.RotY, out _rot.HeadX);
+            }
+            UpdatePosition();
+            return 0;
+        }
+        public virtual int Update() {
+            if (_model == "pig" || _model == "sheep" || _model == "chicken")
+                aUpdate();
+            else
+                eUpdate();
+            UpdatePosition();
+            return 0;
+        }
+        public void Jump() {
+            if (_canJump) {
+                _canJump = false;
+                _speedY = 9;
+            }
+        }
+        public void UpdatePosition() {
+            //Refresh every 30secs to prevent invisible mobs bug
+            _refreshClientCount++;
+            if (_refreshClientCount >= 1000) {
+                _refreshClientCount = 0;
+                createClientEntity();
+            }
+            //Swiming
+            Level map = LevelInfo.FindExact(_curMap);
+            ushort block = map.GetBlock((ushort) _pos.BlockX, (ushort) _pos.BlockY, (ushort) _pos.BlockZ);
+            byte collide = map.CollideType(block);
+            Random rnd = new Random();
+            if (collide == CollideType.SwimThrough) {
+                _swimCount++;
+                if (_swimCount > 20) {
+                    _speedY = 3;
+                    if (_swimCount > 60) {
+                        _swimCount = 0;
+                    }
+                } else {
+                    _speedY = -1;
+                }
+            }
+            _speedY--;
+            if (_VelX > 0) _VelX--;
+            if (_VelX < 0) _VelX++;
+            if (_VelY > 0) _VelY--;
+            if (_VelY < 0) _VelY++;
+            if (_VelZ > 0) _VelZ--;
+            if (_VelZ < 0) _VelZ++;
+            int oldX = _pos.X;
+            _pos.X += _speedX + _VelX;
+            if (HitTestMap()) {
+                _pos.X = oldX;
+                Jump();
+            }
+            int oldY = _pos.Y;
+            _pos.Y += _speedY + _VelY;
+            if (HitTestMap()) {
+                if (_speedY < 0) {
+                    _canJump = true;
+                }
+                _speedY = 0;
+                _pos.Y = oldY;
+            }
+            int oldZ = _pos.Z;
+            _pos.Z += _speedZ + _VelZ;
+            if (HitTestMap()) {
+                _pos.Z = oldZ;
+                Jump();
+            }
+            foreach(Player p in PlayerInfo.Online.Items) {
+                if (p.level.name != _curMap) continue;
+                Position fakePos = new Position(_pos.X + 16, _pos.Y + 17, _pos.Z + 16);
+                p.Send(Packet.Teleport(ID, fakePos, _rot, true));
+            }
+        }
     }
 
     public sealed class CmdPvP: Command2 {
@@ -1341,19 +1770,19 @@ namespace MCGalaxy {
                 p.Message("You need to specify an amount of health to set.");
                 return;
             }
-            
+
             Player[] online = PlayerInfo.Online.Items;
             Player target = PlayerInfo.FindMatches(p, args[1]);
             if (target == null) return;
-            foreach (Player pl in online) {
+            foreach(Player pl in online) {
                 if (PvP.maplist.Contains(p.level.name)) {
                     if (pl.invincible) {
                         continue;
                     }
-            
+
                     for (int i = 0; i < 100; i++) {
                         if (PvP.players[i, 0] == target.name) {
-                            
+
                             PvP.players[i, 1] = args[2];
                             PvP.SetHpIndicator(i, target);
                         }
@@ -1972,64 +2401,88 @@ namespace MCGalaxy {
 
         public override void Help(Player p) {}
     }
-    
-    public sealed class CmdDropBlock : Command2 {
-        public override string name { get { return "DropBlock"; } }
-        public override string shortcut { get { return "db"; } }
-        public override string type { get { return CommandTypes.Building; } }
-        public override LevelPermission defaultRank { get { return LevelPermission.AdvBuilder; } }
-        public override bool SuperUseable { get { return false; } }
-        
-        private readonly Random _random = new Random(); 
-        
-        public int RandomNumber(int min, int max) {  
+
+    public sealed class CmdDropBlock: Command2 {
+        public override string name {
+            get {
+                return "DropBlock";
+            }
+        }
+        public override string shortcut {
+            get {
+                return "db";
+            }
+        }
+        public override string type {
+            get {
+                return CommandTypes.Building;
+            }
+        }
+        public override LevelPermission defaultRank {
+            get {
+                return LevelPermission.AdvBuilder;
+            }
+        }
+        public override bool SuperUseable {
+            get {
+                return false;
+            }
+        }
+
+        private readonly Random _random = new Random();
+
+        public int RandomNumber(int min, int max) {
             return _random.Next(min, max);
         }
-        
+
         void AddBot(Player p, string botName) {
             botName = botName.Replace(' ', '_');
             PlayerBot bot = new PlayerBot(botName, p.level);
             bot.Owner = p.name;
             TryAddBot(p, bot);
         }
-        
+
         void TryAddBot(Player p, PlayerBot bot) {
             if (BotExists(p.level, bot.name, null)) {
-                p.Message("A bot with that name already exists."); return;
+                p.Message("A bot with that name already exists.");
+                return;
             }
             if (p.level.Bots.Count >= Server.Config.MaxBotsPerLevel) {
-                p.Message("Reached maximum number of bots allowed on this map."); return;
+                p.Message("Reached maximum number of bots allowed on this map.");
+                return;
             }
-            
+
             bot.SetInitialPos(p.Pos);
             bot.SetYawPitch(p.Rot.RotY, 0);
             PlayerBot.Add(bot);
         }
-        
+
         static bool BotExists(Level lvl, string name, PlayerBot skip) {
             PlayerBot[] bots = lvl.Bots.Items;
-            foreach (PlayerBot bot in bots) {
+            foreach(PlayerBot bot in bots) {
                 if (bot == skip) continue;
                 if (bot.name.CaselessEq(name)) return true;
             }
             return false;
         }
-        
+
         static string ParseModel(Player dst, Entity e, string model) {
             // Reset entity's model
             if (model.Length == 0) {
-                e.ScaleX = 0; e.ScaleY = 0; e.ScaleZ = 0;
+                e.ScaleX = 0;
+                e.ScaleY = 0;
+                e.ScaleZ = 0;
                 return "humanoid";
             }
-            
+
             model = model.ToLower();
             model = model.Replace(':', '|'); // since users assume : is for scale instead of |.
-            
+
             float max = ModelInfo.MaxScale(e, model);
             // restrict player model scale, but bots can have unlimited model scale
             if (ModelInfo.GetRawScale(model) > max) {
                 dst.Message("%WScale must be {0} or less for {1} model",
-                            max, ModelInfo.GetRawModel(model));
+                    max, ModelInfo.GetRawModel(model));
                 return null;
             }
             return model;
@@ -2046,16 +2499,16 @@ namespace MCGalaxy {
             AddBot(p, "block_" + code);
             PlayerBot bot = Matcher.FindBots(p, "block_" + code);
             bot.DisplayName = "";
-            
+
             bot.GlobalDespawn();
             bot.GlobalSpawn();
-            
+
             BotsFile.Save(p.level);
-            
+
             // Convert blocks over ID 65
             int convertedBlock = block;
-        	if (convertedBlock >= 66) convertedBlock = block - 256; // Need to convert block if ID is over 66
-            
+            if (convertedBlock >= 66) convertedBlock = block - 256; // Need to convert block if ID is over 66
+
             string model = ParseModel(p, bot, convertedBlock + "|0.5");
             if (model == null) return;
             bot.UpdateModel(model);
@@ -2063,70 +2516,169 @@ namespace MCGalaxy {
             if (!ScriptFile.Parse(p, bot, "spin")) return;
             BotsFile.Save(p.level);
         }
-        
+
         public override void Help(Player p) {
             p.Message("%T/DropBlock - %HDrops a block at your feet.");
         }
     }
-    
-    public sealed class CmdPickupBlock : Command2 {
-        public override string name { get { return "PickupBlock"; } }
-        public override string shortcut { get { return "pickup"; } }
-        public override string type { get { return CommandTypes.Building; } }
-        public override LevelPermission defaultRank { get { return LevelPermission.AdvBuilder; } }
-        public override bool SuperUseable { get { return false; } }
+
+    public sealed class CmdPickupBlock: Command2 {
+        public override string name {
+            get {
+                return "PickupBlock";
+            }
+        }
+        public override string shortcut {
+            get {
+                return "pickup";
+            }
+        }
+        public override string type {
+            get {
+                return CommandTypes.Building;
+            }
+        }
+        public override LevelPermission defaultRank {
+            get {
+                return LevelPermission.AdvBuilder;
+            }
+        }
+        public override bool SuperUseable {
+            get {
+                return false;
+            }
+        }
 
         public override void Use(Player p, string message, CommandData data) { // /PickupBlock [bot name] [block]
             if (!PvP.maplist.Contains(p.level.name)) return;
-            if (message.Length == 0) return;       
+            if (message.Length == 0) return;
             string[] args = message.SplitSpaces(2);
-            
+
             if (p.Supports(CpeExt.HeldBlock)) Command.Find("SilentHold").Use(p, args[1]);
 
             p.lastCMD = "Secret";
             PlayerBot bot = Matcher.FindBots(p, "block_" + args[0]);
             PlayerBot.Remove(bot);
-            
+
             // TODO: Add blocks to inventory
         }
-        
+
         public override void Help(Player p) {}
     }
-    
-    public class CmdSilentHold : Command2 {
-        public override string name { get { return "SilentHold"; } }
-        public override string shortcut { get { return ""; } }
-        public override bool MessageBlockRestricted { get { return false; } }
-        public override string type { get { return "other"; } }
-        public override bool museumUsable { get { return false; } }
-        public override LevelPermission defaultRank { get { return LevelPermission.Guest; } }
-		
+
+    public class CmdSilentHold: Command2 {
+        public override string name {
+            get {
+                return "SilentHold";
+            }
+        }
+        public override string shortcut {
+            get {
+                return "";
+            }
+        }
+        public override bool MessageBlockRestricted {
+            get {
+                return false;
+            }
+        }
+        public override string type {
+            get {
+                return "other";
+            }
+        }
+        public override bool museumUsable {
+            get {
+                return false;
+            }
+        }
+        public override LevelPermission defaultRank {
+            get {
+                return LevelPermission.Guest;
+            }
+        }
+
         public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) { Help(p); return; }
+            if (message.Length == 0) {
+                Help(p);
+                return;
+            }
             if (!p.Supports(CpeExt.HeldBlock)) {
-                p.Message("Your client doesn't support changing your held block."); return;
-            }            
+                p.Message("Your client doesn't support changing your held block.");
+                return;
+            }
             string[] args = message.SplitSpaces(2);
-            
+
             BlockID block;
             if (!CommandParser.GetBlock(p, args[0], out block)) return;
             bool locked = false;
             if (args.Length > 1 && !CommandParser.GetBool(p, args[1], ref locked)) return;
-            
+
             if (Block.IsPhysicsType(block)) {
-                p.Message("Cannot hold physics blocks"); return;
+                p.Message("Cannot hold physics blocks");
+                return;
             }
-            
+
             BlockID raw = p.ConvertBlock(block);
             p.Send(Packet.HoldThis(raw, locked, p.hasExtBlocks));
             //p.Message("Set your held block to {0}.", Block.GetName(p, block));
         }
-        
+
         public override void Help(Player p) {
             p.Message("%T/SilentHold [block] <locked>");
             p.Message("%HMakes you hold the given block in your hand");
             p.Message("%H  <locked> optionally prevents you from changing it");
-			p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
+            p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
         }
-	}
+    }
+
+    public sealed class CmdSpawnMob: Command2 {
+        public override string name {
+            get {
+                return "SpawnMob";
+            }
+        }
+        public override string type {
+            get {
+                return CommandTypes.Games;
+            }
+        }
+        public override bool museumUsable {
+            get {
+                return false;
+            }
+        }
+        public override LevelPermission defaultRank {
+            get {
+                return LevelPermission.Operator;
+            }
+        }
+        public override bool SuperUseable {
+            get {
+                return false;
+            }
+        }
+
+        PvP mainm;
+
+        public CmdSpawnMob(PvP m) {
+            mainm = m;
+        }
+
+        public override void Use(Player p, string message, CommandData data) {
+            int n;
+            if (message.Length == 0) {
+                Help(p);
+                return;
+            }
+            string[] args = message.SplitSpaces(8);
+
+            PvP.cmdSpawnMob(p.Pos.X / 32, p.Pos.Y / 32, p.Pos.Z / 32, args[0], "survival", mainm);
+            p.Message("Spawning " + args[0] + " at " + p.Pos.X / 32 + "," + p.Pos.Y / 32 + "," + p.Pos.Z / 32);
+        }
+
+        public override void Help(Player p) {
+            p.Message("%T/SpawnMob <mob> %H- Spawns a specified mob");
+        }
+    }
 }
