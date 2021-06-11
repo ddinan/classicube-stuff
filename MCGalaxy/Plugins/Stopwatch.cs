@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 
 using MCGalaxy;
+using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Tasks;
 
 namespace MCGalaxy {
