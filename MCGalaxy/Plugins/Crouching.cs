@@ -58,8 +58,6 @@ namespace MCGalaxy
                 pl.Send(Packet.TextHotKey("Crouch", "/Crouch◙", 54, 0, true));
             }
 
-            p.Message(p.Extras.GetBoolean("IS_CROUCHING") + " " + p.Extras.GetBoolean("HAS_CROUCHED"));
-
             // Remove current horspeed rule because client does MOTD checking lamely
             if (p.Extras.GetBoolean("IS_CROUCHING") || !p.Extras.GetBoolean("HAS_CROUCHED")) return;
             if (!p.Extras.GetBoolean("IS_CROUCHING"))
