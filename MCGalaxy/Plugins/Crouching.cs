@@ -52,24 +52,21 @@ namespace MCGalaxy
         static void HandleGettingMOTD(Player p, ref string motd)
         {
             Player[] players = PlayerInfo.Online.Items;
-
             foreach (Player pl in players)
             {
                 pl.Send(Packet.TextHotKey("Crouch", "/Crouch◙", 54, 0, true));
             }
 
-            // Remove current horspeed rule because client does MOTD checking lamely
-            if (p.Extras.GetBoolean("IS_CROUCHING") || !p.Extras.GetBoolean("HAS_CROUCHED")) return;
-            if (!p.Extras.GetBoolean("IS_CROUCHING"))
-            {
-                // Check if player has actually toggled crouch, since defaults to false
-                motd = motd
-                    .SplitSpaces()
-                    .Where(word => !word.CaselessStarts("horspeed="))
-                    .Join(" ");
+            // Check if player has actually toggled crouch, since defaults to false
+            if (!p.Extras.GetBoolean("IS_CROUCHING")) return;
 
-                motd += " horspeed=0.52";
-            }
+            // Remove current horspeed rule because client does MOTD checking lamely
+            motd = motd
+                   .SplitSpaces()
+                   .Where(word => !word.CaselessStarts("horspeed="))
+                   .Join(" ");
+
+            motd += " horspeed=0.52";
         }
 
         public override void Help(Player p)
@@ -89,19 +86,16 @@ namespace MCGalaxy
         {
             if (p.Extras.GetBoolean("IS_CROUCHING"))
             {
-                p.Extras["IS_CROUCHING"] = true;
+                p.Extras["IS_CROUCHING"] = false;
                 p.Extras["HAS_CROUCHED"] = true;
                 p.SendMapMotd();
-                p.Extras["IS_CROUCHING"] = false;
                 Command.Find("SilentModel").Use(p, "humanoid|1");
             }
-
             else
             {
-                p.Extras["IS_CROUCHING"] = false;
+                p.Extras["IS_CROUCHING"] = true;
                 p.Extras["HAS_CROUCHED"] = true;
                 p.SendMapMotd();
-                p.Extras["IS_CROUCHING"] = true;
                 Command.Find("SilentModel").Use(p, "crouch");
             }
         }
