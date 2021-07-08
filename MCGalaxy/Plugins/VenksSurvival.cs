@@ -59,20 +59,28 @@ using MCGalaxy.SQL;
 using MCGalaxy.Tasks;
 using BlockID = System.UInt16;
 
-namespace MCGalaxy {
-    public class PvP: Plugin {
-        public override string name {
-            get {
+namespace MCGalaxy
+{
+    public class PvP : Plugin
+    {
+        public override string name
+        {
+            get
+            {
                 return "&aVenk's Survival%S"; // To unload: /punload Survival
             }
         }
-        public override string MCGalaxy_Version {
-            get {
+        public override string MCGalaxy_Version
+        {
+            get
+            {
                 return "1.9.2.8";
             }
         }
-        public override string creator {
-            get {
+        public override string creator
+        {
+            get
+            {
                 return "Venk and Sirvoid"; // Credit to FaeEmpress for most of the mob code
             }
         }
@@ -98,7 +106,7 @@ namespace MCGalaxy {
         public int lvllength = 0;
         public int lvlheight = 0;
 
-        List < Mob > mobs = new List < Mob > ();
+        List<Mob> mobs = new List<Mob>();
         string[] mobtypes = {
             "chicken",
             "pig",
@@ -115,13 +123,14 @@ namespace MCGalaxy {
         public static string SecretCode = "code"; // Potions secret code
 
         public static int curpid = -1;
-        public static List < string > maplist = new List < string > ();
-        public static string[, ] players = new string[100, 3];
-        public static string[, ] weapons = new string[255, 3];
-        public static string[, ] tools = new string[255, 4];
-        public static string[, ] blocks = new string[255, 3];
+        public static List<string> maplist = new List<string>();
+        public static string[,] players = new string[100, 3];
+        public static string[,] weapons = new string[255, 3];
+        public static string[,] tools = new string[255, 4];
+        public static string[,] blocks = new string[255, 3];
 
-        public override void Load(bool startup) {
+        public override void Load(bool startup)
+        {
             loadMaps();
             loadWeapons();
             loadTools();
@@ -149,9 +158,12 @@ namespace MCGalaxy {
             //if (mobsEnabled) Command.Register(new CmdSpawnMob());
 
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player p in online) {
-                for (int i = 0; i < 100; i++) {
-                    if (players[i, 0] == null) {
+            foreach (Player p in online)
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    if (players[i, 0] == null)
+                    {
                         players[i, 0] = p.name;
                         players[i, 1] = MaxHp;
                         players[i, 2] = "30000";
@@ -162,12 +174,15 @@ namespace MCGalaxy {
             }
         }
 
-        public override void Unload(bool shutdown) {
+        public override void Unload(bool shutdown)
+        {
             // Unload mobs
             Level[] levels = LevelInfo.Loaded.Items;
-            foreach(Level lvl in levels) {
+            foreach (Level lvl in levels)
+            {
                 int i;
-                for (i = 0; i < mobs.Count; i++) {
+                for (i = 0; i < mobs.Count; i++)
+                {
                     mobs[i].deleteClientEntity();
                     Remove(mobs[i], lvl.name);
                 }
@@ -245,39 +260,51 @@ namespace MCGalaxy {
                 new ColumnDesc("Slot36", ColumnType.VarChar, 16),
         };
 
-        void initDB() {
+        void initDB()
+        {
             Database.CreateTable("Potions", createPotions);
             Database.CreateTable("Inventories3", createInventories);
         }
 
-        void loadMaps() {
-            if (File.Exists(path + "maps.txt")) {
-                using(var maplistreader = new StreamReader(path + "maps.txt")) {
+        void loadMaps()
+        {
+            if (File.Exists(path + "maps.txt"))
+            {
+                using (var maplistreader = new StreamReader(path + "maps.txt"))
+                {
                     string line;
-                    while ((line = maplistreader.ReadLine()) != null) {
+                    while ((line = maplistreader.ReadLine()) != null)
+                    {
                         maplist.Add(line);
                     }
                 }
-            } else File.Create(path + "maps.txt").Dispose();
+            }
+            else File.Create(path + "maps.txt").Dispose();
         }
 
         #region Drowning
 
-        void KillPlayer(Player p, int i) {
+        void KillPlayer(Player p, int i)
+        {
             p.HandleDeath(Block.Water);
             p.Extras.Remove("DROWNING");
             players[i, 1] = MaxHp;
             p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
         }
 
-        void HandleDrown(SchedulerTask task) {
-            if (survivalDeath == false) {
+        void HandleDrown(SchedulerTask task)
+        {
+            if (survivalDeath == false)
+            {
                 return;
             }
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player p in online) {
-                if (maplist.Contains(p.level.name)) {
-                    if (p.invincible) {
+            foreach (Player p in online)
+            {
+                if (maplist.Contains(p.level.name))
+                {
+                    if (p.invincible)
+                    {
                         continue;
                     }
                     ushort x = (ushort)(p.Pos.X / 32);
@@ -285,187 +312,221 @@ namespace MCGalaxy {
                     ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) + 1);
                     ushort z = (ushort)(p.Pos.Z / 32);
 
-                    BlockID block = p.level.GetBlock((ushort) x, ((ushort) y), (ushort) z);
-                    BlockID block2 = p.level.GetBlock((ushort) x, ((ushort) y2), (ushort) z);
+                    BlockID block = p.level.GetBlock((ushort)x, ((ushort)y), (ushort)z);
+                    BlockID block2 = p.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
 
                     string body = Block.GetName(p, block);
                     string head = Block.GetName(p, block2);
 
-                    if (body == "Water" && head == "Water") {
+                    if (body == "Water" && head == "Water")
+                    {
                         int number = p.Extras.GetInt("DROWNING");
                         p.Extras["DROWNING"] = number + 1;
                         int air = p.Extras.GetInt("DROWNING");
                         // (10 - number) + 1)
-                        if (air == 1) {
+                        if (air == 1)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooooooo");
                         }
-                        if (air == 2) {
+                        if (air == 2)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooooooo");
                         }
-                        if (air == 3) {
+                        if (air == 3)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooooo");
                         }
-                        if (air == 4) {
+                        if (air == 4)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooooo");
                         }
-                        if (air == 5) {
+                        if (air == 5)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooo");
                         }
-                        if (air == 6) {
+                        if (air == 6)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooo");
                         }
-                        if (air == 7) {
+                        if (air == 7)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooo");
                         }
-                        if (air == 8) {
+                        if (air == 8)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%booo");
                         }
-                        if (air == 9) {
+                        if (air == 9)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%boo");
                         }
-                        if (air == 10) {
+                        if (air == 10)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "%bo");
                         }
 
-                        if (air >= 10) {
+                        if (air >= 10)
+                        {
                             p.SendCpeMessage(CpeMessageType.BottomRight1, "");
-                            for (int i = 0; i < 100; i++) {
-                                if (players[i, 0] == p.truename) {
+                            for (int i = 0; i < 100; i++)
+                            {
+                                if (players[i, 0] == p.truename)
+                                {
                                     int a = int.Parse(players[i, 1]);
-                                    if (air == 11) {
+                                    if (air == 11)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 12) {
+                                    if (air == 12)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 13) {
+                                    if (air == 13)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 14) {
+                                    if (air == 14)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 15) {
+                                    if (air == 15)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 16) {
+                                    if (air == 16)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 17) {
+                                    if (air == 17)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 18) {
+                                    if (air == 18)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 19) {
+                                    if (air == 19)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 20) {
+                                    if (air == 20)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 21) {
+                                    if (air == 21)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 22) {
+                                    if (air == 22)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 23) {
+                                    if (air == 23)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 24) {
+                                    if (air == 24)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 25) {
+                                    if (air == 25)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 26) {
+                                    if (air == 26)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 27) {
+                                    if (air == 27)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 28) {
+                                    if (air == 28)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 29) {
+                                    if (air == 29)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
                                         if (a <= 1) KillPlayer(p, i);
                                     }
 
-                                    if (air == 30) {
+                                    if (air == 30)
+                                    {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
 
@@ -474,7 +535,9 @@ namespace MCGalaxy {
                                 }
                             }
                         }
-                    } else {
+                    }
+                    else
+                    {
                         p.SendCpeMessage(CpeMessageType.BottomRight1, "");
                         p.Extras.Remove("DROWNING");
                     }
@@ -486,14 +549,20 @@ namespace MCGalaxy {
 
         #region Regeneration
 
-        void HandleRegeneration(SchedulerTask task) {
+        void HandleRegeneration(SchedulerTask task)
+        {
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player p in online) {
-                if (maplist.Contains(p.level.name)) {
-                    for (int i = 0; i < 100; i++) {
-                        if (players[i, 0] == p.truename) {
+            foreach (Player p in online)
+            {
+                if (maplist.Contains(p.level.name))
+                {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        if (players[i, 0] == p.truename)
+                        {
                             int a = int.Parse(players[i, 1]);
-                            if (a.ToString() == MaxHp) {
+                            if (a.ToString() == MaxHp)
+                            {
                                 continue;
                             }
                             players[i, 1] = (a + 1) + "";
@@ -509,7 +578,8 @@ namespace MCGalaxy {
         #region Fall damage WIP
         // TODO: Calculations are inaccurate and server can affect measurements. Use at own risk!
 
-        int fallBlocks(int fallTime) {
+        int fallBlocks(int fallTime)
+        {
             int ft = fallTime;
             if (ft < 96) return 3;
             if (ft >= 96 && ft < 128) return 4;
@@ -536,7 +606,8 @@ namespace MCGalaxy {
             return 0;
         }
 
-        int fallDamage(int fallBlocks) {
+        int fallDamage(int fallBlocks)
+        {
             int fb = fallBlocks;
             if (fb < 4) return 0;
             if (fb == 4) return 1;
@@ -562,17 +633,23 @@ namespace MCGalaxy {
             return 0;
         }
 
-        void HandleFall(SchedulerTask task) {
-            if (survivalDeath == false) {
+        void HandleFall(SchedulerTask task)
+        {
+            if (survivalDeath == false)
+            {
                 return;
             }
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player p in online) {
-                if (maplist.Contains(p.level.name)) {
-                    if (p.invincible) {
+            foreach (Player p in online)
+            {
+                if (maplist.Contains(p.level.name))
+                {
+                    if (p.invincible)
+                    {
                         return;
                     }
-                    if (Hacks.CanUseFly(p)) {
+                    if (Hacks.CanUseFly(p))
+                    {
                         return;
                     }
 
@@ -581,16 +658,20 @@ namespace MCGalaxy {
                     ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) - 1);
                     ushort z = (ushort)(p.Pos.Z / 32);
 
-                    BlockID block = p.level.GetBlock((ushort) x, ((ushort) y2), (ushort) z);
+                    BlockID block = p.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
 
                     string feet = Block.GetName(p, block);
 
-                    if (p.Extras.GetBoolean("FALLING")) { // If falling
+                    if (p.Extras.GetBoolean("FALLING"))
+                    { // If falling
                         int fallTime = p.Extras.GetInt("FALLTIME");
 
-                        if (feet == "Air") {
+                        if (feet == "Air")
+                        {
                             p.Extras["FALLTIME"] = fallTime + 1;
-                        } else {
+                        }
+                        else
+                        {
                             int damage = fallDamage(fallBlocks(fallTime)) - 6;
                             p.Extras.Remove("FALLING");
                             p.Message("%eYou fell for %b{0} %ewhich is %b{1} blocks %eand %b{2} hearts", fallTime.ToString(),
@@ -602,7 +683,8 @@ namespace MCGalaxy {
                         return; // Avoid loop
                     }
 
-                    if (feet == "Air") {
+                    if (feet == "Air")
+                    {
                         // Set falling to true so we can use it up further
                         p.Extras["FALLING"] = true;
                     }
@@ -613,29 +695,35 @@ namespace MCGalaxy {
         #endregion
 
         #region Mining blocks
-        
-        int FindSlotFor(string[] row, string name) {
-            for (int col = 1; col <= 36; col++) {
+
+        int FindSlotFor(string[] row, string name)
+        {
+            for (int col = 1; col <= 36; col++)
+            {
                 string contents = row[col];
                 if (contents == "0" || contents.StartsWith(name)) return col;
             }
             return 0;
         }
 
-        void SaveBlock(Player p, BlockID block) {
+        void SaveBlock(Player p, BlockID block)
+        {
             string name = Block.GetName(p, block);
-            
-            p.Message("You mined 1x " + name);
-                
-            List <string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
 
-            if (pRows.Count == 0) {
+            p.Message("You mined 1x " + name);
+
+            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+            if (pRows.Count == 0)
+            {
                 p.Message("You did not have anything saved.");
                 Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
                 "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, name + "(0)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
                 return;
-            } else {
+            }
+            else
+            {
                 string s1 = pRows[0][1].ToString();
                 string s2 = pRows[0][2].ToString();
                 string s3 = pRows[0][3].ToString();
@@ -646,7 +734,7 @@ namespace MCGalaxy {
                 string s8 = pRows[0][8].ToString();
                 string s9 = pRows[0][9].ToString();
                 string s10 = pRows[0][10].ToString();
-                
+
                 string s11 = pRows[0][11].ToString();
                 string s12 = pRows[0][12].ToString();
                 string s13 = pRows[0][13].ToString();
@@ -657,7 +745,7 @@ namespace MCGalaxy {
                 string s18 = pRows[0][18].ToString();
                 string s19 = pRows[0][19].ToString();
                 string s20 = pRows[0][20].ToString();
-                
+
                 string s21 = pRows[0][21].ToString();
                 string s22 = pRows[0][22].ToString();
                 string s23 = pRows[0][23].ToString();
@@ -668,36 +756,40 @@ namespace MCGalaxy {
                 string s28 = pRows[0][28].ToString();
                 string s29 = pRows[0][29].ToString();
                 string s30 = pRows[0][30].ToString();
-                
+
                 string s31 = pRows[0][31].ToString();
                 string s32 = pRows[0][32].ToString();
                 string s33 = pRows[0][33].ToString();
                 string s34 = pRows[0][34].ToString();
                 string s35 = pRows[0][35].ToString();
                 string s36 = pRows[0][36].ToString();
-                
+
                 int column = FindSlotFor(pRows[0], name);
-                
+
                 p.Message("Column: " + column);
 
-                if (column == 0) {
+                if (column == 0)
+                {
                     p.Message("Your inventory is full.");
                     return;
                 }
-                
-                
+
+
                 int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(name, "").Replace("(", "").Replace(")", "")) + 1;
-                
+
                 //p.Message("New count: " + newCount);
-                
+
                 Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, name + "(" + newCount.ToString() + ")");
                 return;
             }
         }
 
-        void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
-            if (button == MouseButton.Left) {
-                if (maplist.Contains(p.level.name)) {
+        void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
+        {
+            if (button == MouseButton.Left)
+            {
+                if (maplist.Contains(p.level.name))
+                {
                     if (!blockMining) return;
 
                     // Get MOTD of map
@@ -705,13 +797,16 @@ namespace MCGalaxy {
                     if (!cfg.MOTD.ToLower().Contains("mining=true")) return;
                     if (p.invincible) return;
 
-                    if (p.Extras.GetInt("HOLDING_TIME") == 0) {
+                    if (p.Extras.GetInt("HOLDING_TIME") == 0)
+                    {
                         p.Extras["MINING_COORDS"] = x + "_" + y + "_" + z;
                     }
 
-                    if (action == MouseAction.Pressed) {
+                    if (action == MouseAction.Pressed)
+                    {
                         string coords = p.Extras.GetString("MINING_COORDS");
-                        if (coords != (x + "_" + y + "_" + z)) {
+                        if (coords != (x + "_" + y + "_" + z))
+                        {
                             p.Extras["HOLDING_TIME"] = 0;
                             p.Extras["MINING_COORDS"] = 0;
                             return;
@@ -725,9 +820,9 @@ namespace MCGalaxy {
                         if (clickedBlock == 255) return;
                         BlockID b = p.GetHeldBlock();
 
-                        string[] blockstats = getBlockStats((byte) clickedBlock + "").Split(' ');
+                        string[] blockstats = getBlockStats((byte)clickedBlock + "").Split(' ');
                         //p.Message(blockstats[2]);
-                        string[] toolstats = getToolStats((byte) b + "").Split(' ');
+                        string[] toolstats = getToolStats((byte)b + "").Split(' ');
 
                         //p.Message("block type: " + blockstats[1] + ", hard: " + blockstats[2] + ", id: " +  clickedBlock);
                         //p.Message("tool type: " + toolstats[3] + ", hard: " + toolstats[2] + ", speed %b" + toolstats[1] + "%S, id: " +  toolstats[0]);
@@ -735,33 +830,22 @@ namespace MCGalaxy {
                         // Check if block type and tool type go together
                         // Assign speed of tool based on tool type
                         // Get block durability, times by 125 then divide by the speed of the tool
-                        if (blockstats[2] == "0") {
+                        if (blockstats[2] == "0")
+                        {
                             SaveBlock(p, clickedBlock);
                             p.level.UpdateBlock(p, x, y, z, Block.Air);
                             return;
                         }
 
-                        if (toolstats[2] == "0") {
+                        if (toolstats[2] == "0")
+                        {
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 175) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
-                            if (duration > TimeSpan.FromMilliseconds(speed)) { // 100ms per hit, leaves takes 2 hits so 200ms to break
-                                SaveBlock(p, clickedBlock);
-                                p.level.UpdateBlock(p, x, y, z, Block.Air);
-                                p.Extras["HOLDING_TIME"] = 0;
-                                p.Extras["MINING_COORDS"] = 0;
-                                return;
-                            }
-                            p.Extras["HOLDING_TIME"] = heldFor + 1;
-                        } else {
-                            int toolSpeed = Int32.Parse(toolstats[2]);
-                            int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 100) / toolSpeed;
-                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
-
-                            if (duration > TimeSpan.FromMilliseconds(speed)) {
+                            if (duration > TimeSpan.FromMilliseconds(speed))
+                            { // 100ms per hit, leaves takes 2 hits so 200ms to break
                                 SaveBlock(p, clickedBlock);
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
@@ -770,7 +854,26 @@ namespace MCGalaxy {
                             }
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
                         }
-                    } else if (action == MouseAction.Released) {
+                        else
+                        {
+                            int toolSpeed = Int32.Parse(toolstats[2]);
+                            int blockSpeed = Int32.Parse(blockstats[2]);
+                            int speed = (blockSpeed * 100) / toolSpeed;
+                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
+
+                            if (duration > TimeSpan.FromMilliseconds(speed))
+                            {
+                                SaveBlock(p, clickedBlock);
+                                p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                p.Extras["HOLDING_TIME"] = 0;
+                                p.Extras["MINING_COORDS"] = 0;
+                                return;
+                            }
+                            p.Extras["HOLDING_TIME"] = heldFor + 1;
+                        }
+                    }
+                    else if (action == MouseAction.Released)
+                    {
                         p.Extras["HOLDING_TIME"] = 0;
                         p.Extras["MINING_COORDS"] = 0;
                     }
@@ -789,18 +892,25 @@ namespace MCGalaxy {
 
         #region PvP
 
-        public static bool inSafeZone(Player p, string map) {
-            if (File.Exists(path + "safezones" + map + ".txt")) {
-                using(var r = new StreamReader(path + "safezones" + map + ".txt")) {
+        public static bool inSafeZone(Player p, string map)
+        {
+            if (File.Exists(path + "safezones" + map + ".txt"))
+            {
+                using (var r = new StreamReader(path + "safezones" + map + ".txt"))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         string[] temp = line.Split(';');
                         string[] coord1 = temp[0].Split(',');
                         string[] coord2 = temp[1].Split(',');
 
-                        if ((p.Pos.BlockX <= int.Parse(coord1[0]) && p.Pos.BlockX >= int.Parse(coord2[0])) || (p.Pos.BlockX >= int.Parse(coord1[0]) && p.Pos.BlockX <= int.Parse(coord2[0]))) {
-                            if ((p.Pos.BlockZ <= int.Parse(coord1[2]) && p.Pos.BlockZ >= int.Parse(coord2[2])) || (p.Pos.BlockZ >= int.Parse(coord1[2]) && p.Pos.BlockZ <= int.Parse(coord2[2]))) {
-                                if ((p.Pos.BlockY <= int.Parse(coord1[1]) && p.Pos.BlockY >= int.Parse(coord2[1])) || (p.Pos.BlockY >= int.Parse(coord1[1]) && p.Pos.BlockY <= int.Parse(coord2[1]))) {
+                        if ((p.Pos.BlockX <= int.Parse(coord1[0]) && p.Pos.BlockX >= int.Parse(coord2[0])) || (p.Pos.BlockX >= int.Parse(coord1[0]) && p.Pos.BlockX <= int.Parse(coord2[0])))
+                        {
+                            if ((p.Pos.BlockZ <= int.Parse(coord1[2]) && p.Pos.BlockZ >= int.Parse(coord2[2])) || (p.Pos.BlockZ >= int.Parse(coord1[2]) && p.Pos.BlockZ <= int.Parse(coord2[2])))
+                            {
+                                if ((p.Pos.BlockY <= int.Parse(coord1[1]) && p.Pos.BlockY >= int.Parse(coord2[1])) || (p.Pos.BlockY >= int.Parse(coord1[1]) && p.Pos.BlockY <= int.Parse(coord2[1])))
+                                {
                                     return true;
                                 }
                             }
@@ -812,62 +922,81 @@ namespace MCGalaxy {
             return false;
         }
 
-        void HandlePlayerClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
-            if (button == MouseButton.Left) {
-                if (maplist.Contains(p.level.name)) {
+        void HandlePlayerClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
+        {
+            if (button == MouseButton.Left)
+            {
+                if (maplist.Contains(p.level.name))
+                {
                     if (action != MouseAction.Pressed) return;
                     if (entity != Entities.SelfID && !ClickOnPlayer(p, entity, button)) return;
 
                     int placeholder = 1;
-                    if (placeholder == 1) {
+                    if (placeholder == 1)
+                    {
                         #region PvP code
                         curpid = -1;
-                        for (int yi = 0; yi < 100; yi++) {
-                            if (players[yi, 0] == p.name) {
+                        for (int yi = 0; yi < 100; yi++)
+                        {
+                            if (players[yi, 0] == p.name)
+                            {
                                 curpid = yi;
                             }
                         }
 
                         int s = DateTime.Now.Second;
                         int ms = DateTime.Now.Millisecond;
-                        if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350) {
+                        if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
+                        {
                             Player[] online = PlayerInfo.Online.Items;
-                            foreach(Player pl in online) {
-                                if (pl.EntityID == entity) {
-                                    for (int i = 0; i < 100; i++) {
-                                        if (players[i, 0] == pl.name) {
-                                            if (i < 100) {
+                            foreach (Player pl in online)
+                            {
+                                if (pl.EntityID == entity)
+                                {
+                                    for (int i = 0; i < 100; i++)
+                                    {
+                                        if (players[i, 0] == pl.name)
+                                        {
+                                            if (i < 100)
+                                            {
                                                 if (pl.invincible) return;
                                                 // Check if they can kill players, as determined by gamemode plugins
                                                 bool canKill = gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
-                                                if (!canKill) {
+                                                if (!canKill)
+                                                {
                                                     p.Message("You cannot kill people.");
                                                     return;
                                                 }
-                                                if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name)) { // If both not in a safezone
+                                                if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
+                                                { // If both not in a safezone
                                                     if (p.Game.Referee) return;
                                                     if (pl.Game.Referee) return;
 
                                                     int a = int.Parse(players[i, 1]);
 
                                                     BlockID b = p.GetHeldBlock();
-                                                    string[] weaponstats = getWeaponStats((byte) b + "").Split(' ');
+                                                    string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
                                                     //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
 
-                                                    if (hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0") {
+                                                    if (hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0")
+                                                    {
                                                         // Calculate damage from weapon
                                                         int damage = 1;
-                                                        if (weaponstats[0] != "0") {
+                                                        if (weaponstats[0] != "0")
+                                                        {
                                                             damage = Int32.Parse(weaponstats[1]);
                                                             players[i, 1] = (a - damage) + "";
-                                                        } else players[i, 1] = (a - 1) + "";
+                                                        }
+                                                        else players[i, 1] = (a - 1) + "";
 
-                                                        if (a >= 0) {
+                                                        if (a >= 0)
+                                                        {
                                                             p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
                                                         }
                                                         SetHpIndicator(i, pl);
 
-                                                        if (a <= 0) { // If player killed them
+                                                        if (a <= 0)
+                                                        { // If player killed them
                                                             string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
                                                             pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
                                                             pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
@@ -884,21 +1013,27 @@ namespace MCGalaxy {
 
                                                             pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
-                                                            if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1")) {
-                                                                if (pl.money > moneyStolen - 1) {
+                                                            if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
+                                                            {
+                                                                if (pl.money > moneyStolen - 1)
+                                                                {
                                                                     p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
                                                                     pl.Message(p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
                                                                     p.SetMoney(p.money + moneyStolen);
                                                                     pl.SetMoney(pl.money - moneyStolen);
 
                                                                     MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
-                                                                    if (bounty != null) {
+                                                                    if (bounty != null)
+                                                                    {
                                                                         ZSGame.Instance.Bounties.Remove(bounty);
                                                                         Player setter = PlayerInfo.FindExact(bounty.Origin);
 
-                                                                        if (setter == null) {
+                                                                        if (setter == null)
+                                                                        {
                                                                             p.Message("Cannot collect the bounty, as the player who set it is offline.");
-                                                                        } else {
+                                                                        }
+                                                                        else
+                                                                        {
                                                                             p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
                                                                                 bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
                                                                             p.SetMoney(p.money + bounty.Amount);
@@ -907,10 +1042,14 @@ namespace MCGalaxy {
                                                                 }
                                                             }
                                                         }
-                                                    } else {
+                                                    }
+                                                    else
+                                                    {
                                                         p.Message("You don't own this weapon.");
                                                     }
-                                                } else {
+                                                }
+                                                else
+                                                {
                                                     p.Message("You can't hurt people in a safe zone.");
                                                 }
                                             }
@@ -927,9 +1066,11 @@ namespace MCGalaxy {
             }
         }
 
-        static bool ClickOnPlayer(Player p, byte entity, MouseButton button) {
+        static bool ClickOnPlayer(Player p, byte entity, MouseButton button)
+        {
             Player[] ponline = PlayerInfo.Online.Items;
-            for (int i = 0; i < ponline.Length; i++) {
+            for (int i = 0; i < ponline.Length; i++)
+            {
                 if (ponline[i].EntityID != entity) continue;
                 Player pl = ponline[i];
                 Vec3F32 delta = p.Pos.ToVec3F32() - pl.Pos.ToVec3F32();
@@ -937,16 +1078,20 @@ namespace MCGalaxy {
                 // Don't allow clicking on players further away than their reach distance
                 if (delta.LengthSquared > (reachSq + 1)) return false;
                 curpid = -1;
-                for (int yi = 0; yi < 100; yi++) {
-                    if (players[yi, 0] == p.name) {
+                for (int yi = 0; yi < 100; yi++)
+                {
+                    if (players[yi, 0] == p.name)
+                    {
                         curpid = yi;
                     }
                 }
 
                 int s = DateTime.Now.Second;
                 int ms = DateTime.Now.Millisecond;
-                if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350) {
-                    if (button == MouseButton.Left) {
+                if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
+                {
+                    if (button == MouseButton.Left)
+                    {
                         // Check if they can kill players, as determined by gamemode plugins
                         bool canKill = PvP.gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
                         if (!canKill) return false;
@@ -956,7 +1101,7 @@ namespace MCGalaxy {
                         if (pl.invincible) return false;
                         if (inSafeZone(p, p.level.name) || inSafeZone(pl, pl.level.name)) return false;
                         BlockID b = p.GetHeldBlock();
-                        string[] weaponstats = getWeaponStats((byte) b + "").Split(' ');
+                        string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
                         if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
                         PushPlayer(p, pl);
                     }
@@ -966,7 +1111,8 @@ namespace MCGalaxy {
             return false;
         }
 
-        static void PushPlayer(Player p, Player pl) {
+        static void PushPlayer(Player p, Player pl)
+        {
             int srcHeight = ModelInfo.CalcEyeHeight(p);
             int dstHeight = ModelInfo.CalcEyeHeight(pl);
             int dx = p.Pos.X - pl.Pos.X, dy = (p.Pos.Y + srcHeight) - (pl.Pos.Y + dstHeight), dz = p.Pos.Z - pl.Pos.Z;
@@ -976,18 +1122,24 @@ namespace MCGalaxy {
             float mult = 1 / ModelInfo.GetRawScale(pl.Model);
             float plScale = ModelInfo.GetRawScale(pl.Model);
 
-            if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl)) {
+            if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl))
+            {
                 // Intensity of force is in part determined by model scale
                 pl.Send(Packet.VelocityControl((-dir.X * mult) * 0.57f, 1.0117f * mult, (-dir.Z * mult) * 0.57f, 0, 1, 0));
-            } else {
+            }
+            else
+            {
                 p.Message("You can left and right click people to hit them if you update your client!");
             }
         }
 
-        void HandleMobClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face) {
+        void HandleMobClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
+        {
             int i;
-            for (i = 0; i < mobs.Count; i++) {
-                if (mobs[i].ID == entity) {
+            for (i = 0; i < mobs.Count; i++)
+            {
+                if (mobs[i].ID == entity)
+                {
                     if (calculDistance(p.Pos, mobs[i]._pos) < 200)
                         mobs[i].HurtByPlayer(1, p);
                 }
@@ -995,21 +1147,26 @@ namespace MCGalaxy {
             p.SendCpeMessage(CpeMessageType.Status1, "mobs.count=" + mobs.Count);
         }
 
-        void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce) {
+        void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
+        {
             // Handle mobs
-            if (mobsEnabled) {
+            if (mobsEnabled)
+            {
                 int m = 0;
                 Random rnd = new Random();
-                if (maplist.Contains(p.level.name) && init == 0) {
+                if (maplist.Contains(p.level.name) && init == 0)
+                {
                     lvlwidth = level.Width;
                     lvllength = level.Length;
                     lvlheight = level.Height - 2;
-                    for (m = 0; m < MaxMobs; m++) {
+                    for (m = 0; m < MaxMobs; m++)
+                    {
                         spawnMob(rnd.Next(0, lvlwidth), lvlheight, rnd.Next(0, lvlheight), mobtypes[rnd.Next(0, 7)], p.level.name, (byte)(100 + m));
                     }
                     init = 1;
                 }
-                for (m = 0; m < mobs.Count; m++) {
+                for (m = 0; m < mobs.Count; m++)
+                {
                     mobs[m].createClientEntity();
                 }
             }
@@ -1019,15 +1176,19 @@ namespace MCGalaxy {
             p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
 
             Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
-            if (maplist.Contains(level.name)) {
+            if (maplist.Contains(level.name))
+            {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
-                for (int i = 0; i < 100; i++) {
+                for (int i = 0; i < 100; i++)
+                {
                     if (players[i, 0] == p.name) return;
                 }
 
-                for (int i = 0; i < 100; i++) {
-                    if (players[i, 0] == null) {
+                for (int i = 0; i < 100; i++)
+                {
+                    if (players[i, 0] == null)
+                    {
                         players[i, 0] = p.name;
                         players[i, 1] = MaxHp;
                         players[i, 2] = "30000";
@@ -1037,75 +1198,98 @@ namespace MCGalaxy {
             }
 
             if (prevLevel == null) return;
-            if (!maplist.Contains(level.name)) {
+            if (!maplist.Contains(level.name))
+            {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "");
             }
         }
 
-        public static void SetHpIndicator(int i, Player pl) {
+        public static void SetHpIndicator(int i, Player pl)
+        {
             int a = int.Parse(players[i, 1]);
 
-            if (a == 20) {
+            if (a == 20)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥♥");
             }
-            if (a == 19) {
+            if (a == 19)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥╫");
             }
-            if (a == 18) {
+            if (a == 18)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥%0♥");
             }
-            if (a == 17) {
+            if (a == 17)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥╫%0♥");
             }
-            if (a == 16) {
+            if (a == 16)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥%0♥♥");
             }
-            if (a == 15) {
+            if (a == 15)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥╫%0♥♥");
             }
-            if (a == 14) {
+            if (a == 14)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥%0♥♥♥");
             }
-            if (a == 13) {
+            if (a == 13)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥╫%0♥♥♥");
             }
-            if (a == 12) {
+            if (a == 12)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥%0♥♥♥♥");
             }
-            if (a == 11) {
+            if (a == 11)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥╫%0♥♥♥♥");
             }
-            if (a == 10) {
+            if (a == 10)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥%0♥♥♥♥♥");
             }
-            if (a == 9) {
+            if (a == 9)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥╫%0♥♥♥♥♥");
             }
-            if (a == 8) {
+            if (a == 8)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥%0♥♥♥♥♥♥");
             }
-            if (a == 7) {
+            if (a == 7)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥╫%0♥♥♥♥♥♥");
             }
-            if (a == 6) {
+            if (a == 6)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥%0♥♥♥♥♥♥♥");
             }
-            if (a == 5) {
+            if (a == 5)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥╫%0♥♥♥♥♥♥♥");
             }
-            if (a == 4) {
+            if (a == 4)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥%0♥♥♥♥♥♥♥♥");
             }
-            if (a == 3) {
+            if (a == 3)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥╫%0♥♥♥♥♥♥♥♥");
             }
-            if (a == 2) {
+            if (a == 2)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥%0♥♥♥♥♥♥♥♥♥");
             }
-            if (a == 1) {
+            if (a == 1)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f╫%0♥♥♥♥♥♥♥♥♥");
             }
-            if (a == 0) {
+            if (a == 0)
+            {
                 pl.SendCpeMessage(CpeMessageType.BottomRight2, "%0♥♥♥♥♥♥♥♥♥♥");
             }
         }
@@ -1114,12 +1298,16 @@ namespace MCGalaxy {
 
         #region Weapons
 
-        public static bool hasWeapon(string world, Player p, string weapon) {
+        public static bool hasWeapon(string world, Player p, string weapon)
+        {
             string filepath = path + "weapons/" + world + "/" + p.truename + ".txt";
-            if (File.Exists(filepath)) {
-                using(var r = new StreamReader(filepath)) {
+            if (File.Exists(filepath))
+            {
+                using (var r = new StreamReader(filepath))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         if (line == weapon) return true;
                     }
                 }
@@ -1127,23 +1315,32 @@ namespace MCGalaxy {
             return false;
         }
 
-        public static string getWeaponStats(string weapon) {
-            for (int i = 0; i < 255; i++) {
-                if (weapons[i, 0] == weapon) {
+        public static string getWeaponStats(string weapon)
+        {
+            for (int i = 0; i < 255; i++)
+            {
+                if (weapons[i, 0] == weapon)
+                {
                     return weapons[i, 0] + " " + weapons[i, 1] + " " + weapons[i, 2];
                 }
             }
             return "0 1 0";
         }
 
-        void loadWeapons() {
-            if (File.Exists(path + "weapons.txt")) {
-                using(var r = new StreamReader(path + "weapons.txt")) {
+        void loadWeapons()
+        {
+            if (File.Exists(path + "weapons.txt"))
+            {
+                using (var r = new StreamReader(path + "weapons.txt"))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         string[] weaponStats = line.Split(';');
-                        for (int i = 0; i < 255; i++) {
-                            if (weapons[i, 0] == null) {
+                        for (int i = 0; i < 255; i++)
+                        {
+                            if (weapons[i, 0] == null)
+                            {
                                 weapons[i, 0] = weaponStats[0];
                                 weapons[i, 1] = weaponStats[1];
                                 weapons[i, 2] = weaponStats[2];
@@ -1152,19 +1349,24 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            } else File.Create(path + "weapons.txt").Dispose();
+            }
+            else File.Create(path + "weapons.txt").Dispose();
         }
 
         #endregion
 
         #region Tools
 
-        bool hasTool(string world, Player p, string tool) {
+        bool hasTool(string world, Player p, string tool)
+        {
             string filepath = path + "tools/" + world + "/" + p.truename + ".txt";
-            if (File.Exists(filepath)) {
-                using(var r = new StreamReader(filepath)) {
+            if (File.Exists(filepath))
+            {
+                using (var r = new StreamReader(filepath))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         if (line == tool) return true;
                     }
                 }
@@ -1172,23 +1374,32 @@ namespace MCGalaxy {
             return false;
         }
 
-        string getToolStats(string tool) {
-            for (int i = 0; i < 255; i++) {
-                if (tools[i, 0] == tool) {
+        string getToolStats(string tool)
+        {
+            for (int i = 0; i < 255; i++)
+            {
+                if (tools[i, 0] == tool)
+                {
                     return tools[i, 0] + " " + tools[i, 1] + " " + tools[i, 2] + " " + tools[i, 3];
                 }
             }
             return "0 1 0 0";
         }
 
-        void loadTools() {
-            if (File.Exists(path + "tools.txt")) {
-                using(var r = new StreamReader(path + "tools.txt")) {
+        void loadTools()
+        {
+            if (File.Exists(path + "tools.txt"))
+            {
+                using (var r = new StreamReader(path + "tools.txt"))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         string[] toolStats = line.Split(';');
-                        for (int i = 0; i < 255; i++) {
-                            if (tools[i, 0] == null) {
+                        for (int i = 0; i < 255; i++)
+                        {
+                            if (tools[i, 0] == null)
+                            {
                                 tools[i, 0] = toolStats[0];
                                 tools[i, 1] = toolStats[1];
                                 tools[i, 2] = toolStats[2];
@@ -1198,19 +1409,24 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            } else File.Create(path + "tools.txt").Dispose();
+            }
+            else File.Create(path + "tools.txt").Dispose();
         }
 
         #endregion
 
         #region Blocks
 
-        bool hasBlock(string world, Player p, string block) {
+        bool hasBlock(string world, Player p, string block)
+        {
             string filepath = path + "blocks/" + world + "/" + p.truename + ".txt";
-            if (File.Exists(filepath)) {
-                using(var r = new StreamReader(filepath)) {
+            if (File.Exists(filepath))
+            {
+                using (var r = new StreamReader(filepath))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         if (line == block) return true;
                     }
                 }
@@ -1218,23 +1434,32 @@ namespace MCGalaxy {
             return false;
         }
 
-        string getBlockStats(string block) {
-            for (int i = 0; i < 255; i++) {
-                if (blocks[i, 0] == block) {
+        string getBlockStats(string block)
+        {
+            for (int i = 0; i < 255; i++)
+            {
+                if (blocks[i, 0] == block)
+                {
                     return blocks[i, 0] + " " + blocks[i, 1] + " " + blocks[i, 2];
                 }
             }
             return "0 1 0";
         }
 
-        void loadBlocks() {
-            if (File.Exists(path + "blocks.txt")) {
-                using(var r = new StreamReader(path + "blocks.txt")) {
+        void loadBlocks()
+        {
+            if (File.Exists(path + "blocks.txt"))
+            {
+                using (var r = new StreamReader(path + "blocks.txt"))
+                {
                     string line;
-                    while ((line = r.ReadLine()) != null) {
+                    while ((line = r.ReadLine()) != null)
+                    {
                         string[] blockStats = line.Split(';');
-                        for (int i = 0; i < 255; i++) {
-                            if (blocks[i, 0] == null) {
+                        for (int i = 0; i < 255; i++)
+                        {
+                            if (blocks[i, 0] == null)
+                            {
                                 blocks[i, 0] = blockStats[0];
                                 blocks[i, 1] = blockStats[1];
                                 blocks[i, 2] = blockStats[2];
@@ -1243,16 +1468,19 @@ namespace MCGalaxy {
                         }
                     }
                 }
-            } else File.Create(path + "blocks.txt").Dispose();
+            }
+            else File.Create(path + "blocks.txt").Dispose();
         }
 
         #endregion
 
         #region Potions
 
-        public static void CheckInvisible(SchedulerTask task) {
+        public static void CheckInvisible(SchedulerTask task)
+        {
             Player[] players = PlayerInfo.Online.Items;
-            foreach(Player p in players) {
+            foreach (Player p in players)
+            {
                 if (!p.Extras.GetBoolean("POTION_IS_INVISIBLE")) continue;
                 // Timer
 
@@ -1261,7 +1489,8 @@ namespace MCGalaxy {
 
                 DateTime date2 = date1.AddSeconds(10);
 
-                if (DateTime.UtcNow > date2) {
+                if (DateTime.UtcNow > date2)
+                {
                     p.Extras["POTION_IS_INVISIBLE"] = false;
 
                     Entities.GlobalSpawn(p, true);
@@ -1272,9 +1501,11 @@ namespace MCGalaxy {
             }
         }
 
-        public static void CheckSpeed(SchedulerTask task) {
+        public static void CheckSpeed(SchedulerTask task)
+        {
             Player[] players = PlayerInfo.Online.Items;
-            foreach(Player p in players) {
+            foreach (Player p in players)
+            {
                 if (!p.Extras.GetBoolean("POTION_IS_FAST")) continue;
                 if (p.Extras.GetBoolean("POTION_IS_JUMP")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
                 else p.Send(Packet.Motd(p, p.level.Config.MOTD + " horspeed=3.75"));
@@ -1284,7 +1515,8 @@ namespace MCGalaxy {
                 DateTime date1 = DateTime.Parse(time);
                 DateTime date2 = date1.AddSeconds(7);
 
-                if (DateTime.UtcNow > date2) {
+                if (DateTime.UtcNow > date2)
+                {
                     p.Extras["POTION_IS_FAST"] = false;
                     p.SendMapMotd();
                     p.Message("The speed potion has worn off, you are now at normal speed again.");
@@ -1293,9 +1525,11 @@ namespace MCGalaxy {
             }
         }
 
-        public static void CheckJump(SchedulerTask task) {
+        public static void CheckJump(SchedulerTask task)
+        {
             Player[] players = PlayerInfo.Online.Items;
-            foreach(Player p in players) {
+            foreach (Player p in players)
+            {
                 if (!p.Extras.GetBoolean("POTION_IS_JUMP")) continue;
                 if (p.Extras.GetBoolean("POTION_IS_FAST")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
                 else p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4"));
@@ -1306,7 +1540,8 @@ namespace MCGalaxy {
                 DateTime date1 = DateTime.Parse(time);
                 DateTime date2 = date1.AddSeconds(7);
 
-                if (DateTime.UtcNow > date2) {
+                if (DateTime.UtcNow > date2)
+                {
                     p.Extras["POTION_IS_JUMP"] = false;
                     p.SendMapMotd();
                     p.Message("The jump potion has worn off, you are now at normal jump height again.");
@@ -1318,7 +1553,8 @@ namespace MCGalaxy {
 
         #region Mobs
 
-        public void Remove(Mob m, string level) {
+        public void Remove(Mob m, string level)
+        {
             Mob newm = null;
             Random rnd = new Random();
             byte nextid;
@@ -1328,14 +1564,16 @@ namespace MCGalaxy {
             newm.createClientEntity();
         }
 
-        Mob spawnMob(int X, int Y, int Z, string model, string map, byte sID) {
+        Mob spawnMob(int X, int Y, int Z, string model, string map, byte sID)
+        {
             Mob mob = new Mob();
-            mob.SurvivalMob(X, Y, Z, model, map, (byte) sID, this);
+            mob.SurvivalMob(X, Y, Z, model, map, (byte)sID, this);
             mobs.Add(mob);
             return mob;
         }
 
-        public static void cmdSpawnMob(int x, int y, int z, string model, string map, PvP M) {
+        public static void cmdSpawnMob(int x, int y, int z, string model, string map, PvP M)
+        {
             Mob mob = new Mob();
             mob.SurvivalMob(x, y, z, model, map, (byte)(M.mobs.Count + 2 + 100), M);
             M.mobs.Add(mob);
@@ -1343,24 +1581,28 @@ namespace MCGalaxy {
             //spawnMob(x,y,z,model,map,(byte)(mobs.Count+1));
         }
 
-        void MobsCallback(SchedulerTask task) {
+        void MobsCallback(SchedulerTask task)
+        {
             int i;
-            for (i = 0; i < mobs.Count; i++) {
+            for (i = 0; i < mobs.Count; i++)
+            {
                 mobs[i].Update();
             }
         }
 
-        public int calculDistance(Position a, Position b) {
+        public int calculDistance(Position a, Position b)
+        {
             float deltaX = a.X - b.X;
             float deltaY = a.Y - b.Y;
             float deltaZ = a.Z - b.Z;
-            int distance = (int) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+            int distance = (int)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
             return distance;
         }
         #endregion
     }
 
-    public class Mob {
+    public class Mob
+    {
         public byte ID = 0;
         public int hp = 10;
 
@@ -1369,8 +1611,10 @@ namespace MCGalaxy {
 
         private PvP _survivalMobs;
         public Position _pos;
-        public Position pos {
-            get {
+        public Position pos
+        {
+            get
+            {
                 return _pos;
             }
         }
@@ -1389,7 +1633,8 @@ namespace MCGalaxy {
         protected int _VelZ = 0;
         protected int _width = 32;
         protected int _height = 64;
-        public void SurvivalMob(int X, int Y, int Z, string model, string map, byte sID, PvP m) {
+        public void SurvivalMob(int X, int Y, int Z, string model, string map, byte sID, PvP m)
+        {
             ID = sID;
             _pos = new Position(X * 32, Y * 32, Z * 32);
             _rot = new Orientation();
@@ -1398,7 +1643,8 @@ namespace MCGalaxy {
             _speedX = 4;
             _survivalMobs = m;
         }
-        public bool HitTestMap() {
+        public bool HitTestMap()
+        {
             Level map = LevelInfo.FindExact(_curMap);
             int minX = _pos.X / 32 - 2;
             int maxX = _pos.X / 32 + 2;
@@ -1406,9 +1652,12 @@ namespace MCGalaxy {
             int maxY = _pos.Y / 32 + 2;
             int minZ = _pos.Z / 32 - 2;
             int maxZ = _pos.Z / 32 + 2;
-            for (int i = minY; i <= maxY; i++) {
-                for (int j = minX; j <= maxX; j++) {
-                    for (int k = minZ; k <= maxZ; k++) {
+            for (int i = minY; i <= maxY; i++)
+            {
+                for (int j = minX; j <= maxX; j++)
+                {
+                    for (int k = minZ; k <= maxZ; k++)
+                    {
                         if (!CollideType.IsSolid(map.CollideType((map.GetBlock((ushort)(j), (ushort)(i), (ushort)(k)))))) continue;
                         bool touchX = _pos.X + _width > (j * 32) && _pos.X < ((j + 1) * 32);
                         bool touchY = (_pos.Y - 32) + _height > (i * 32) && (_pos.Y - 32) < ((i + 1) * 32);
@@ -1419,27 +1668,33 @@ namespace MCGalaxy {
             }
             return false;
         }
-        public bool HitTestPlayer(Player p) {
+        public bool HitTestPlayer(Player p)
+        {
             bool touchX = _pos.X + _width + 16 > p.Pos.X + p.ModelBB.BlockMin.X && _pos.X - 16 < p.Pos.X + p.ModelBB.BlockMax.X;
             bool touchY = _pos.Y + _height > p.Pos.Y + p.ModelBB.BlockMin.Y && _pos.Y < p.Pos.Y + p.ModelBB.BlockMax.Y;
             bool touchZ = _pos.Z + _width + 16 > p.Pos.Z + p.ModelBB.BlockMin.Z && _pos.Z - 16 < p.Pos.Z + p.ModelBB.BlockMax.Z;
             if (touchX && touchY && touchZ) return true;
             return false;
         }
-        public void createClientEntity() {
-            foreach(Player p in PlayerInfo.Online.Items) {
+        public void createClientEntity()
+        {
+            foreach (Player p in PlayerInfo.Online.Items)
+            {
                 if (p.level.name != _curMap) continue;
                 p.Send(Packet.AddEntity(ID, "", _pos, _rot, true, true));
                 p.Send(Packet.ChangeModel(ID, _model, true));
             }
         }
-        public void deleteClientEntity() {
-            foreach(Player p in PlayerInfo.Online.Items) {
+        public void deleteClientEntity()
+        {
+            foreach (Player p in PlayerInfo.Online.Items)
+            {
                 if (p.level.name == _curMap)
                     p.Send(Packet.RemoveEntity(ID));
             }
         }
-        public void HurtByPlayer(int damage, Player p) {
+        public void HurtByPlayer(int damage, Player p)
+        {
             // Knockback
             int a = p.Pos.X - _pos.X;
             int b = p.Pos.Z - _pos.Z;
@@ -1451,9 +1706,11 @@ namespace MCGalaxy {
             Hurt(damage, p);
             _beenHurted = true;
         }
-        private void Hurt(int damage, Player p) {
+        private void Hurt(int damage, Player p)
+        {
             hp -= damage;
-            if (hp <= 0) {
+            if (hp <= 0)
+            {
                 p.SetMoney(p.money + 5);
                 p.Message("Gained 5 %b" + Server.Config.Currency);
                 Remove(ID, p.level.name);
@@ -1461,73 +1718,89 @@ namespace MCGalaxy {
             }
         }
 
-        public Player getClosestPlayerFrom(float x, float y, float z, string map) {
+        public Player getClosestPlayerFrom(float x, float y, float z, string map)
+        {
             float deltaX;
             float deltaY;
             float deltaZ;
             Player pl = null;
             float lastd = 120000;
 
-            foreach(Player p in PlayerInfo.Online.Items) {
-                if (p.level.name == map) {
+            foreach (Player p in PlayerInfo.Online.Items)
+            {
+                if (p.level.name == map)
+                {
                     deltaX = x - p.Pos.X;
                     deltaY = y - p.Pos.Y;
                     deltaZ = z - p.Pos.Z;
-                    float distance = (float) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
-                    if (distance < lastd) {
+                    float distance = (float)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+                    if (distance < lastd)
+                    {
                         pl = p;
                         lastd = distance;
                     }
                 }
             }
-            if (pl != null) {
+            if (pl != null)
+            {
                 return pl;
             }
             return null;
         }
 
-        public int calculDistance(Position a, Position b) {
+        public int calculDistance(Position a, Position b)
+        {
             float deltaX = a.X - b.X;
             float deltaY = a.Y - b.Y;
             float deltaZ = a.Z - b.Z;
-            int distance = (int) Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
+            int distance = (int)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
             return distance;
         }
 
-        void Remove(int id, string level) {
-            if (this.ID == id) {
+        void Remove(int id, string level)
+        {
+            if (this.ID == id)
+            {
                 deleteClientEntity();
                 _survivalMobs.Remove(this, this._curMap);
             }
         }
 
-        private void Attack() {
-            foreach(Player pl in PlayerInfo.Online.Items) {
-                if (pl.level.name == _curMap) {
+        private void Attack()
+        {
+            foreach (Player pl in PlayerInfo.Online.Items)
+            {
+                if (pl.level.name == _curMap)
+                {
                     int dist = calculDistance(pl.Pos, _pos);
                     if (dist > _width + _height) continue;
-                    if (HitTestPlayer(pl)) {
+                    if (HitTestPlayer(pl))
+                    {
                         pl.HandleDeath(Block.Stone, "@p %c" + "was killed by a " + _model, false, false);
                     }
                 }
             }
         }
 
-        public int eUpdate() {
+        public int eUpdate()
+        {
             _attackCount++;
-            if (_attackCount > 10) {
+            if (_attackCount > 10)
+            {
                 _attackCount = 0;
                 Attack();
             }
 
             Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
-            if (p != null) {
+            if (p != null)
+            {
                 int dist = calculDistance(p.Pos, _pos);
                 /*if (dist > 4096) {
                     Remove(ID);
                     return 1;
                 }*/
-                if (dist > 250) {
+                if (dist > 250)
+                {
                     _speedX = 0;
                     _speedZ = 0;
                     UpdatePosition();
@@ -1546,17 +1819,21 @@ namespace MCGalaxy {
             return 0;
         }
 
-        public int aUpdate() {
+        public int aUpdate()
+        {
             Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
-            if (p != null) {
+            if (p != null)
+            {
                 int dist = calculDistance(p.Pos, _pos);
                 /*if (dist > 2048) {
                     Remove(ID);
                     return 1;
                 }*/
-                if (dist > 256 || !_beenHurted) {
+                if (dist > 256 || !_beenHurted)
+                {
                     _count++;
-                    if (_count > 100) {
+                    if (_count > 100)
+                    {
                         _count = 0;
                         Random rnd = new Random();
                         _speedX = rnd.Next(-2, 3);
@@ -1582,7 +1859,8 @@ namespace MCGalaxy {
             UpdatePosition();
             return 0;
         }
-        public virtual int Update() {
+        public virtual int Update()
+        {
             if (_model == "pig" || _model == "sheep" || _model == "chicken")
                 aUpdate();
             else
@@ -1590,32 +1868,41 @@ namespace MCGalaxy {
             UpdatePosition();
             return 0;
         }
-        public void Jump() {
-            if (_canJump) {
+        public void Jump()
+        {
+            if (_canJump)
+            {
                 _canJump = false;
                 _speedY = 9;
             }
         }
-        public void UpdatePosition() {
+        public void UpdatePosition()
+        {
             //Refresh every 30secs to prevent invisible mobs bug
             _refreshClientCount++;
-            if (_refreshClientCount >= 1000) {
+            if (_refreshClientCount >= 1000)
+            {
                 _refreshClientCount = 0;
                 createClientEntity();
             }
             //Swiming
             Level map = LevelInfo.FindExact(_curMap);
-            ushort block = map.GetBlock((ushort) _pos.BlockX, (ushort) _pos.BlockY, (ushort) _pos.BlockZ);
+            ushort block = map.GetBlock((ushort)_pos.BlockX, (ushort)_pos.BlockY, (ushort)_pos.BlockZ);
             byte collide = map.CollideType(block);
             Random rnd = new Random();
-            if (collide == CollideType.SwimThrough) {
+            if (collide == CollideType.SwimThrough)
+            {
                 _swimCount++;
-                if (_swimCount > 20) {
+                if (_swimCount > 20)
+                {
                     _speedY = 3;
-                    if (_swimCount > 60) {
+                    if (_swimCount > 60)
+                    {
                         _swimCount = 0;
                     }
-                } else {
+                }
+                else
+                {
                     _speedY = -1;
                 }
             }
@@ -1628,14 +1915,17 @@ namespace MCGalaxy {
             if (_VelZ < 0) _VelZ++;
             int oldX = _pos.X;
             _pos.X += _speedX + _VelX;
-            if (HitTestMap()) {
+            if (HitTestMap())
+            {
                 _pos.X = oldX;
                 Jump();
             }
             int oldY = _pos.Y;
             _pos.Y += _speedY + _VelY;
-            if (HitTestMap()) {
-                if (_speedY < 0) {
+            if (HitTestMap())
+            {
+                if (_speedY < 0)
+                {
                     _canJump = true;
                 }
                 _speedY = 0;
@@ -1643,11 +1933,13 @@ namespace MCGalaxy {
             }
             int oldZ = _pos.Z;
             _pos.Z += _speedZ + _VelZ;
-            if (HitTestMap()) {
+            if (HitTestMap())
+            {
                 _pos.Z = oldZ;
                 Jump();
             }
-            foreach(Player p in PlayerInfo.Online.Items) {
+            foreach (Player p in PlayerInfo.Online.Items)
+            {
                 if (p.level.name != _curMap) continue;
                 Position fakePos = new Position(_pos.X + 16, _pos.Y + 17, _pos.Z + 16);
                 p.Send(Packet.Teleport(ID, fakePos, _rot, true));
@@ -1655,64 +1947,82 @@ namespace MCGalaxy {
         }
     }
 
-    public sealed class CmdPvP: Command2 {
+    public sealed class CmdPvP : Command2
+    {
         string path = "./plugins/VenksSurvival/";
 
-        public override string name {
-            get {
+        public override string name
+        {
+            get
+            {
                 return "PvP";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Admin;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override CommandPerm[] ExtraPerms {
-            get {
-                return new [] {
+        public override CommandPerm[] ExtraPerms
+        {
+            get
+            {
+                return new[] {
                     new CommandPerm(LevelPermission.Admin, "can manage PvP")
                 };
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
             string[] args = message.SplitSpaces();
 
-            switch (args[0].ToLower()) {
-            case "add":
-                HandleAdd(p, args, data);
-                return;
-            case "del":
-                HandleDelete(p, args, data);
-                return;
-            case "sethp":
-                HandleSetHP(p, args, data);
-                return;
+            switch (args[0].ToLower())
+            {
+                case "add":
+                    HandleAdd(p, args, data);
+                    return;
+                case "del":
+                    HandleDelete(p, args, data);
+                    return;
+                case "sethp":
+                    HandleSetHP(p, args, data);
+                    return;
             }
         }
 
-        void HandleAdd(Player p, string[] args, CommandData data) {
-            if (args.Length == 1) {
+        void HandleAdd(Player p, string[] args, CommandData data)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify a map to add.");
                 return;
             }
@@ -1723,18 +2033,24 @@ namespace MCGalaxy {
             p.Message("The map %b" + pvpMap + " %Shas been added to the PvP map list.");
 
             // Add the map to the map list
-            using(StreamWriter maplistwriter =
-                new StreamWriter(path + "maps.txt")) {
-                foreach(String s in PvP.maplist) {
+            using (StreamWriter maplistwriter =
+                new StreamWriter(path + "maps.txt"))
+            {
+                foreach (String s in PvP.maplist)
+                {
                     maplistwriter.WriteLine(s);
                 }
             }
 
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player pl in online) {
-                if (pl.level.name == args[1]) {
-                    for (int i = 0; i < 100; i++) {
-                        if (PvP.players[i, 0] == null) {
+            foreach (Player pl in online)
+            {
+                if (pl.level.name == args[1])
+                {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        if (PvP.players[i, 0] == null)
+                        {
                             PvP.players[i, 0] = pl.name;
                             PvP.players[i, 1] = PvP.MaxHp;
                             PvP.players[i, 2] = "30000";
@@ -1747,8 +2063,10 @@ namespace MCGalaxy {
             }
         }
 
-        void HandleDelete(Player p, string[] args, CommandData data) {
-            if (args.Length == 1) {
+        void HandleDelete(Player p, string[] args, CommandData data)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify a map to remove.");
                 return;
             }
@@ -1761,12 +2079,15 @@ namespace MCGalaxy {
 
         // Sekrit cmd
 
-        void HandleSetHP(Player p, string[] args, CommandData data) {
-            if (args.Length == 1) {
+        void HandleSetHP(Player p, string[] args, CommandData data)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify a player to set their health.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify an amount of health to set.");
                 return;
             }
@@ -1774,14 +2095,19 @@ namespace MCGalaxy {
             Player[] online = PlayerInfo.Online.Items;
             Player target = PlayerInfo.FindMatches(p, args[1]);
             if (target == null) return;
-            foreach(Player pl in online) {
-                if (PvP.maplist.Contains(p.level.name)) {
-                    if (pl.invincible) {
+            foreach (Player pl in online)
+            {
+                if (PvP.maplist.Contains(p.level.name))
+                {
+                    if (pl.invincible)
+                    {
                         continue;
                     }
 
-                    for (int i = 0; i < 100; i++) {
-                        if (PvP.players[i, 0] == target.name) {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        if (PvP.players[i, 0] == target.name)
+                        {
 
                             PvP.players[i, 1] = args[2];
                             PvP.SetHpIndicator(i, target);
@@ -1791,71 +2117,91 @@ namespace MCGalaxy {
             }
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/PvP add <map> %H- Adds a map to the PvP map list.");
             p.Message("%T/PvP del <map> %H- Deletes a map from the PvP map list.");
             // p.Message("%T/PvP sethp [player] [1-20] %H- Sets a player's health.");
         }
     }
 
-    public sealed class CmdSafeZone: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdSafeZone : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "SafeZone";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Admin;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override CommandPerm[] ExtraPerms {
-            get {
-                return new [] {
+        public override CommandPerm[] ExtraPerms
+        {
+            get
+            {
+                return new[] {
                     new CommandPerm(LevelPermission.Admin, "can manage safe zones")
                 };
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
             string[] args = message.SplitSpaces(2);
 
-            switch (args[0].ToLower()) {
-            case "add":
-                HandleAdd(p, args, data);
-                return;
+            switch (args[0].ToLower())
+            {
+                case "add":
+                    HandleAdd(p, args, data);
+                    return;
             }
         }
 
-        void HandleAdd(Player p, string[] args, CommandData data) {
+        void HandleAdd(Player p, string[] args, CommandData data)
+        {
             p.Message("Place or break two blocks to determine the edges.");
             p.MakeSelection(2, null, addSafeZone);
         }
 
-        bool addSafeZone(Player p, Vec3S32[] marks, object state, BlockID block) {
+        bool addSafeZone(Player p, Vec3S32[] marks, object state, BlockID block)
+        {
             FileInfo filedir = new FileInfo(PvP.path + "safezones" + p.level.name + ".txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(PvP.path + "safezones" + p.level.name + ".txt", true)) {
+            using (StreamWriter file = new StreamWriter(PvP.path + "safezones" + p.level.name + ".txt", true))
+            {
                 file.WriteLine(marks.GetValue(0) + ";" + marks.GetValue(1));
             }
 
@@ -1863,82 +2209,105 @@ namespace MCGalaxy {
             return true;
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/SafeZone [add] %H- Adds a safe zone to the current PvP map.");
             //p.Message("%T/SafeZone [del] %H- Removes a safe zone from the current PvP map.");
         }
     }
 
-    public sealed class CmdWeapon: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdWeapon : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "Weapon";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Admin;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override CommandPerm[] ExtraPerms {
-            get {
-                return new [] {
+        public override CommandPerm[] ExtraPerms
+        {
+            get
+            {
+                return new[] {
                     new CommandPerm(LevelPermission.Admin, "can manage weapons")
                 };
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
             string[] args = message.SplitSpaces(4);
 
-            switch (args[0].ToLower()) {
-            case "add":
-                HandleAdd(p, args);
-                return;
-            case "give":
-                HandleGive(p, args);
-                return;
-            case "take":
-                HandleTake(p, args);
-                return;
+            switch (args[0].ToLower())
+            {
+                case "add":
+                    HandleAdd(p, args);
+                    return;
+                case "give":
+                    HandleGive(p, args);
+                    return;
+                case "take":
+                    HandleTake(p, args);
+                    return;
             }
         }
 
-        void HandleAdd(Player p, string[] args) {
-            if (args.Length == 1) {
+        void HandleAdd(Player p, string[] args)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify an ID for the block. E.g, '1' for stone.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify the damage that the weapon does. E.g, '1' for half a heart.");
                 return;
             }
-            if (args.Length == 3) {
+            if (args.Length == 3)
+            {
                 p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
                 return;
             }
 
-            for (int i = 0; i < 255; i++) {
-                if (PvP.weapons[i, 0] == null) {
+            for (int i = 0; i < 255; i++)
+            {
+                if (PvP.weapons[i, 0] == null)
+                {
                     PvP.weapons[i, 0] = args[1];
                     PvP.weapons[i, 1] = args[2];
                     PvP.weapons[i, 2] = args[3];
@@ -1950,25 +2319,31 @@ namespace MCGalaxy {
             p.Message("Created weapon with ID %b" + args[1] + "%S, damage %b" + args[2] + "%S and durability %b" + args[3] + "%S.");
         }
 
-        void createWeapon(string id, string damage, string durability) {
+        void createWeapon(string id, string damage, string durability)
+        {
             FileInfo filedir = new FileInfo(PvP.path + "weapons.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(PvP.path + "weapons.txt", true)) {
+            using (StreamWriter file = new StreamWriter(PvP.path + "weapons.txt", true))
+            {
                 file.WriteLine(id + ";" + damage + ";" + durability);
             }
         }
 
-        void HandleGive(Player p, string[] args) {
-            if (args.Length == 1) {
+        void HandleGive(Player p, string[] args)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify a username to give the weapon to.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify the world to allow them to use the weapon on.");
                 return;
             }
-            if (args.Length == 3) {
+            if (args.Length == 3)
+            {
                 p.Message("You need to specify the name of the weapon.");
                 return;
             }
@@ -1976,25 +2351,31 @@ namespace MCGalaxy {
             string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
             FileInfo filedir = new FileInfo(filepath);
             filedir.Directory.Create();
-            using(StreamWriter file = new StreamWriter(filepath, true)) {
+            using (StreamWriter file = new StreamWriter(filepath, true))
+            {
                 file.WriteLine(args[3]);
             }
         }
 
-        void HandleTake(Player p, string[] args) {
+        void HandleTake(Player p, string[] args)
+        {
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player pl in online) {
-                if (pl.truename == args[1]) {
+            foreach (Player pl in online)
+            {
+                if (pl.truename == args[1])
+                {
                     string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
 
-                    if (File.Exists(filepath)) {
+                    if (File.Exists(filepath))
+                    {
                         File.WriteAllText(filepath, string.Empty);
                     }
                 }
             }
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/Weapon add [id] [damage] [durability] %H- Adds a weapon to the current PvP map.");
             p.Message("%T/Weapon del %H- Removes a weapon current PvP map.");
             p.Message("%T/Weapon give [player] [world] [weapon] %H- Gives a player a weapon.");
@@ -2002,80 +2383,103 @@ namespace MCGalaxy {
         }
     }
 
-    public sealed class CmdTool: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdTool : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "Tool";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Admin;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override CommandPerm[] ExtraPerms {
-            get {
-                return new [] {
+        public override CommandPerm[] ExtraPerms
+        {
+            get
+            {
+                return new[] {
                     new CommandPerm(LevelPermission.Admin, "can manage tools")
                 };
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
             string[] args = message.SplitSpaces(5);
 
-            switch (args[0].ToLower()) {
-            case "add":
-                HandleAdd(p, args);
-                return;
-            case "give":
-                HandleGive(p, args);
-                return;
-            case "take":
-                HandleTake(p, args);
-                return;
+            switch (args[0].ToLower())
+            {
+                case "add":
+                    HandleAdd(p, args);
+                    return;
+                case "give":
+                    HandleGive(p, args);
+                    return;
+                case "take":
+                    HandleTake(p, args);
+                    return;
             }
         }
 
-        void HandleAdd(Player p, string[] args) {
-            if (args.Length == 1) {
+        void HandleAdd(Player p, string[] args)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify an ID for the tool. E.g, '1' for stone.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify the speed that the weapon mines at. E.g, '1' for normal speed, '2' for 2x speed.");
                 return;
             }
-            if (args.Length == 3) {
+            if (args.Length == 3)
+            {
                 p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
                 return;
             }
-            if (args.Length == 4) {
+            if (args.Length == 4)
+            {
                 p.Message("%H[type] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
                 return;
             }
 
-            for (int i = 0; i < 255; i++) {
-                if (PvP.tools[i, 0] == null) {
+            for (int i = 0; i < 255; i++)
+            {
+                if (PvP.tools[i, 0] == null)
+                {
                     PvP.tools[i, 0] = args[1];
                     PvP.tools[i, 1] = args[2];
                     PvP.tools[i, 2] = args[3];
@@ -2086,25 +2490,31 @@ namespace MCGalaxy {
             }
         }
 
-        void createTool(string id, string damage, string durability, string type) {
+        void createTool(string id, string damage, string durability, string type)
+        {
             FileInfo filedir = new FileInfo(PvP.path + "tools.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(PvP.path + "tools.txt", true)) {
+            using (StreamWriter file = new StreamWriter(PvP.path + "tools.txt", true))
+            {
                 file.WriteLine(id + ";" + damage + ";" + durability + ";" + type);
             }
         }
 
-        void HandleGive(Player p, string[] args) {
-            if (args.Length == 1) {
+        void HandleGive(Player p, string[] args)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify a username to give the tool to.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify the world to allow them to use the tool on.");
                 return;
             }
-            if (args.Length == 3) {
+            if (args.Length == 3)
+            {
                 p.Message("You need to specify the name of the tool.");
                 return;
             }
@@ -2112,25 +2522,31 @@ namespace MCGalaxy {
             string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
             FileInfo filedir = new FileInfo(filepath);
             filedir.Directory.Create();
-            using(StreamWriter file = new StreamWriter(filepath, true)) {
+            using (StreamWriter file = new StreamWriter(filepath, true))
+            {
                 file.WriteLine(args[3]);
             }
         }
 
-        void HandleTake(Player p, string[] args) {
+        void HandleTake(Player p, string[] args)
+        {
             Player[] online = PlayerInfo.Online.Items;
-            foreach(Player pl in online) {
-                if (pl.truename == args[1]) {
+            foreach (Player pl in online)
+            {
+                if (pl.truename == args[1])
+                {
                     string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
 
-                    if (File.Exists(filepath)) {
+                    if (File.Exists(filepath))
+                    {
                         File.WriteAllText(filepath, string.Empty);
                     }
                 }
             }
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/Tool add [id] [speed] [durability] [type] %H- Adds an tool to the current PvP map.");
             p.Message("%T/Tool del %H- Removes an tool from current PvP map.");
             p.Message("%T/Tool give [player] [world] [tool] %H- Gives a player an tool.");
@@ -2138,70 +2554,92 @@ namespace MCGalaxy {
         }
     }
 
-    public sealed class CmdBlock: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdBlock : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "Block";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Admin;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override CommandPerm[] ExtraPerms {
-            get {
-                return new [] {
+        public override CommandPerm[] ExtraPerms
+        {
+            get
+            {
+                return new[] {
                     new CommandPerm(LevelPermission.Admin, "can manage blocks")
                 };
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
             string[] args = message.SplitSpaces(5);
 
-            switch (args[0].ToLower()) {
-            case "add":
-                HandleAdd(p, args);
-                return;
+            switch (args[0].ToLower())
+            {
+                case "add":
+                    HandleAdd(p, args);
+                    return;
             }
         }
 
-        void HandleAdd(Player p, string[] args) {
-            if (args.Length == 1) {
+        void HandleAdd(Player p, string[] args)
+        {
+            if (args.Length == 1)
+            {
                 p.Message("You need to specify an ID for the block. E.g, '1' for stone.");
                 return;
             }
-            if (args.Length == 2) {
+            if (args.Length == 2)
+            {
                 p.Message("You need to specify the tool that makes mining faster. %T[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
                 return;
             }
-            if (args.Length == 3) {
+            if (args.Length == 3)
+            {
                 p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
                 return;
             }
 
-            for (int i = 0; i < 255; i++) {
-                if (PvP.blocks[i, 0] == null) {
+            for (int i = 0; i < 255; i++)
+            {
+                if (PvP.blocks[i, 0] == null)
+                {
                     PvP.blocks[i, 0] = args[1];
                     PvP.blocks[i, 1] = args[2];
                     PvP.blocks[i, 2] = args[3];
@@ -2211,58 +2649,74 @@ namespace MCGalaxy {
             }
         }
 
-        void createBlock(string id, string tool, string durability) {
+        void createBlock(string id, string tool, string durability)
+        {
             FileInfo filedir = new FileInfo(PvP.path + "blocks.txt");
             filedir.Directory.Create();
 
-            using(StreamWriter file = new StreamWriter(PvP.path + "blocks.txt", true)) {
+            using (StreamWriter file = new StreamWriter(PvP.path + "blocks.txt", true))
+            {
                 file.WriteLine(id + ";" + tool + ";" + durability);
             }
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/Block add [id] [tool] [durability] %H- Adds a block to the current PvP map.");
             p.Message("%H[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
         }
     }
 
-    public sealed class CmdPotion: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdPotion : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "Potion";
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return "fun";
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
+        public override void Use(Player p, string message, CommandData data)
+        {
             p.lastCMD = "Secret";
 
             string[] args = message.SplitSpaces(3);
 
-            List < string[] > rows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+            List<string[]> rows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
 
-            if (args[0].Length == 0) {
+            if (args[0].Length == 0)
+            {
                 p.Message("You need to specify a potion to use.");
                 p.Message("%T/Potion health %b- Sets your health to full.");
                 p.Message("%T/Potion speed %b- Gives you a 3.75x speed boost for 3 minutes.");
                 p.Message("%T/Potion jump %b- Gives you a 4x jump boost for 3 minutes.");
                 p.Message("%T/Potion invisible %b- Makes you invisible for 10 seconds.");
-            } else {
-                List < string[] > pRows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
-                if (args[0] == PvP.SecretCode && args.Length >= 3) { // Used for getting potions
+            }
+            else
+            {
+                List<string[]> pRows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+                if (args[0] == PvP.SecretCode && args.Length >= 3)
+                { // Used for getting potions
                     string item = args[1].ToLower();
                     int quantity = Int32.Parse(args[2]);
 
-                    if (pRows.Count == 0) {
+                    if (pRows.Count == 0)
+                    {
                         if (item == "health") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, quantity, 0, 0, 0, 0, 0, 0, 0);
                         if (item == "speed") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, 0, quantity, 0, 0, 0, 0, 0, 0);
                         if (item == "invisible") Database.AddRow("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", p.truename, 0, 0, quantity, 0, 0, 0, 0, 0);
@@ -2270,7 +2724,9 @@ namespace MCGalaxy {
 
                         p.Message("You now have: %b" + quantity + " %S" + item + " potions");
                         return;
-                    } else {
+                    }
+                    else
+                    {
                         int h = int.Parse(pRows[0][1]);
                         int s = int.Parse(pRows[0][2]);
                         int i = int.Parse(pRows[0][3]);
@@ -2281,22 +2737,26 @@ namespace MCGalaxy {
                         int newI = quantity + i;
                         int newJ = quantity + j;
 
-                        if (item == "health") {
+                        if (item == "health")
+                        {
                             Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, newH);
                             p.Message("You now have: %b" + newH + " %S" + item + " potions");
                         }
 
-                        if (item == "speed") {
+                        if (item == "speed")
+                        {
                             Database.UpdateRows("Potions", "Speed=@1", "WHERE NAME=@0", p.truename, newS);
                             p.Message("You now have: %b" + newS + " %S" + item + " potions");
                         }
 
-                        if (item == "invisible") {
+                        if (item == "invisible")
+                        {
                             Database.UpdateRows("Potions", "Invisible=@1", "WHERE NAME=@0", p.truename, newI);
                             p.Message("You now have: %b" + newI + " %S" + item + " potions");
                         }
 
-                        if (item == "jump") {
+                        if (item == "jump")
+                        {
                             Database.UpdateRows("Potions", "Jump=@1", "WHERE NAME=@0", p.truename, newJ);
                             p.Message("You now have: %b" + newJ + " %S" + item + " potions");
                         }
@@ -2304,8 +2764,10 @@ namespace MCGalaxy {
                     }
                 }
 
-                if (args[0] == "list") {
-                    if (pRows.Count == 0) {
+                if (args[0] == "list")
+                {
+                    if (pRows.Count == 0)
+                    {
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
@@ -2318,13 +2780,16 @@ namespace MCGalaxy {
                     p.Message("%7Health %ex{0}%7, Speed %ex{1}%7, Invisible %ex{2}%7, Jump %ex{3}", h, s, i, j);
                 }
 
-                if (args[0] == "health") {
-                    if (pRows.Count == 0) {
+                if (args[0] == "health")
+                {
+                    if (pRows.Count == 0)
+                    {
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
                     int h = int.Parse(rows[0][1]);
-                    if (h == 0) {
+                    if (h == 0)
+                    {
                         p.Message("You don't have any health potions.");
                         return;
                     }
@@ -2336,13 +2801,16 @@ namespace MCGalaxy {
                     p.Message("You have " + (h - 1) + " health potions remaining.");
                 }
 
-                if (args[0] == "speed") {
-                    if (pRows.Count == 0) {
+                if (args[0] == "speed")
+                {
+                    if (pRows.Count == 0)
+                    {
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
                     int s = int.Parse(rows[0][2]);
-                    if (s == 0) {
+                    if (s == 0)
+                    {
                         p.Message("You don't have any speed potions.");
                         return;
                     }
@@ -2355,13 +2823,16 @@ namespace MCGalaxy {
                     Server.MainScheduler.QueueRepeat(PvP.CheckSpeed, null, TimeSpan.FromMilliseconds(10));
                 }
 
-                if (args[0] == "invisible") {
-                    if (pRows.Count == 0) {
+                if (args[0] == "invisible")
+                {
+                    if (pRows.Count == 0)
+                    {
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
                     int i = int.Parse(rows[0][3]);
-                    if (i == 0) {
+                    if (i == 0)
+                    {
                         p.Message("You don't have any invisible potions.");
                         return;
                     }
@@ -2378,13 +2849,16 @@ namespace MCGalaxy {
                     Server.MainScheduler.QueueRepeat(PvP.CheckInvisible, null, TimeSpan.FromSeconds(1));
                 }
 
-                if (args[0] == "jump") {
-                    if (pRows.Count == 0) {
+                if (args[0] == "jump")
+                {
+                    if (pRows.Count == 0)
+                    {
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
                     int j = int.Parse(rows[0][4]);
-                    if (j == 0) {
+                    if (j == 0)
+                    {
                         p.Message("You don't have any jump potions.");
                         return;
                     }
@@ -2399,55 +2873,71 @@ namespace MCGalaxy {
             }
         }
 
-        public override void Help(Player p) {}
+        public override void Help(Player p) { }
     }
 
-    public sealed class CmdDropBlock: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdDropBlock : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "DropBlock";
             }
         }
-        public override string shortcut {
-            get {
+        public override string shortcut
+        {
+            get
+            {
                 return "db";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Building;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.AdvBuilder;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
 
         private readonly Random _random = new Random();
 
-        public int RandomNumber(int min, int max) {
+        public int RandomNumber(int min, int max)
+        {
             return _random.Next(min, max);
         }
 
-        void AddBot(Player p, string botName) {
+        void AddBot(Player p, string botName)
+        {
             botName = botName.Replace(' ', '_');
             PlayerBot bot = new PlayerBot(botName, p.level);
             bot.Owner = p.name;
             TryAddBot(p, bot);
         }
 
-        void TryAddBot(Player p, PlayerBot bot) {
-            if (BotExists(p.level, bot.name, null)) {
+        void TryAddBot(Player p, PlayerBot bot)
+        {
+            if (BotExists(p.level, bot.name, null))
+            {
                 p.Message("A bot with that name already exists.");
                 return;
             }
-            if (p.level.Bots.Count >= Server.Config.MaxBotsPerLevel) {
+            if (p.level.Bots.Count >= Server.Config.MaxBotsPerLevel)
+            {
                 p.Message("Reached maximum number of bots allowed on this map.");
                 return;
             }
@@ -2457,18 +2947,22 @@ namespace MCGalaxy {
             PlayerBot.Add(bot);
         }
 
-        static bool BotExists(Level lvl, string name, PlayerBot skip) {
+        static bool BotExists(Level lvl, string name, PlayerBot skip)
+        {
             PlayerBot[] bots = lvl.Bots.Items;
-            foreach(PlayerBot bot in bots) {
+            foreach (PlayerBot bot in bots)
+            {
                 if (bot == skip) continue;
                 if (bot.name.CaselessEq(name)) return true;
             }
             return false;
         }
 
-        static string ParseModel(Player dst, Entity e, string model) {
+        static string ParseModel(Player dst, Entity e, string model)
+        {
             // Reset entity's model
-            if (model.Length == 0) {
+            if (model.Length == 0)
+            {
                 e.ScaleX = 0;
                 e.ScaleY = 0;
                 e.ScaleZ = 0;
@@ -2480,7 +2974,8 @@ namespace MCGalaxy {
 
             float max = ModelInfo.MaxScale(e, model);
             // restrict player model scale, but bots can have unlimited model scale
-            if (ModelInfo.GetRawScale(model) > max) {
+            if (ModelInfo.GetRawScale(model) > max)
+            {
                 dst.Message("%WScale must be {0} or less for {1} model",
                     max, ModelInfo.GetRawModel(model));
                 return null;
@@ -2488,7 +2983,8 @@ namespace MCGalaxy {
             return model;
         }
 
-        public override void Use(Player p, string message, CommandData data) {
+        public override void Use(Player p, string message, CommandData data)
+        {
             if (!PvP.maplist.Contains(p.level.name)) return;
             Command.Find("SilentHold").Use(p, "air");
             p.lastCMD = "Secret";
@@ -2517,39 +3013,52 @@ namespace MCGalaxy {
             BotsFile.Save(p.level);
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/DropBlock - %HDrops a block at your feet.");
         }
     }
 
-    public sealed class CmdPickupBlock: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdPickupBlock : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "PickupBlock";
             }
         }
-        public override string shortcut {
-            get {
+        public override string shortcut
+        {
+            get
+            {
                 return "pickup";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Building;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.AdvBuilder;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) { // /PickupBlock [bot name] [block]
+        public override void Use(Player p, string message, CommandData data)
+        { // /PickupBlock [bot name] [block]
             if (!PvP.maplist.Contains(p.level.name)) return;
             if (message.Length == 0) return;
             string[] args = message.SplitSpaces(2);
@@ -2563,47 +3072,63 @@ namespace MCGalaxy {
             // TODO: Add blocks to inventory
         }
 
-        public override void Help(Player p) {}
+        public override void Help(Player p) { }
     }
 
-    public class CmdSilentHold: Command2 {
-        public override string name {
-            get {
+    public class CmdSilentHold : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "SilentHold";
             }
         }
-        public override string shortcut {
-            get {
+        public override string shortcut
+        {
+            get
+            {
                 return "";
             }
         }
-        public override bool MessageBlockRestricted {
-            get {
+        public override bool MessageBlockRestricted
+        {
+            get
+            {
                 return false;
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return "other";
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Guest;
             }
         }
 
-        public override void Use(Player p, string message, CommandData data) {
-            if (message.Length == 0) {
+        public override void Use(Player p, string message, CommandData data)
+        {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
-            if (!p.Supports(CpeExt.HeldBlock)) {
+            if (!p.Supports(CpeExt.HeldBlock))
+            {
                 p.Message("Your client doesn't support changing your held block.");
                 return;
             }
@@ -2614,7 +3139,8 @@ namespace MCGalaxy {
             bool locked = false;
             if (args.Length > 1 && !CommandParser.GetBool(p, args[1], ref locked)) return;
 
-            if (Block.IsPhysicsType(block)) {
+            if (Block.IsPhysicsType(block))
+            {
                 p.Message("Cannot hold physics blocks");
                 return;
             }
@@ -2624,7 +3150,8 @@ namespace MCGalaxy {
             //p.Message("Set your held block to {0}.", Block.GetName(p, block));
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/SilentHold [block] <locked>");
             p.Message("%HMakes you hold the given block in your hand");
             p.Message("%H  <locked> optionally prevents you from changing it");
@@ -2632,42 +3159,56 @@ namespace MCGalaxy {
         }
     }
 
-    public sealed class CmdSpawnMob: Command2 {
-        public override string name {
-            get {
+    public sealed class CmdSpawnMob : Command2
+    {
+        public override string name
+        {
+            get
+            {
                 return "SpawnMob";
             }
         }
-        public override string type {
-            get {
+        public override string type
+        {
+            get
+            {
                 return CommandTypes.Games;
             }
         }
-        public override bool museumUsable {
-            get {
+        public override bool museumUsable
+        {
+            get
+            {
                 return false;
             }
         }
-        public override LevelPermission defaultRank {
-            get {
+        public override LevelPermission defaultRank
+        {
+            get
+            {
                 return LevelPermission.Operator;
             }
         }
-        public override bool SuperUseable {
-            get {
+        public override bool SuperUseable
+        {
+            get
+            {
                 return false;
             }
         }
 
         PvP mainm;
 
-        public CmdSpawnMob(PvP m) {
+        public CmdSpawnMob(PvP m)
+        {
             mainm = m;
         }
 
-        public override void Use(Player p, string message, CommandData data) {
+        public override void Use(Player p, string message, CommandData data)
+        {
             int n;
-            if (message.Length == 0) {
+            if (message.Length == 0)
+            {
                 Help(p);
                 return;
             }
@@ -2677,7 +3218,8 @@ namespace MCGalaxy {
             p.Message("Spawning " + args[0] + " at " + p.Pos.X / 32 + "," + p.Pos.Y / 32 + "," + p.Pos.Z / 32);
         }
 
-        public override void Help(Player p) {
+        public override void Help(Player p)
+        {
             p.Message("%T/SpawnMob <mob> %H- Spawns a specified mob");
         }
     }
