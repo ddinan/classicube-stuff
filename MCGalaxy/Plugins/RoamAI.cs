@@ -14,7 +14,7 @@ namespace MCGalaxy
 
         public override string name { get { return "RoamAI"; } }
         public override string MCGalaxy_Version { get { return "1.9.3.1"; } }
-        public override string creator { get { return ""; } }
+        public override string creator { get { return "Venk"; } }
 
         public override void Load(bool startup)
         {
@@ -56,7 +56,6 @@ namespace MCGalaxy
             int stillChance = RandomNumber(0, 5); // Chance for the NPC to stand still
             int walkTime = RandomNumber(4, 8) * 5; // Time in milliseconds to execute a task
             int waitTime = RandomNumber(2, 5) * 5; // Time in milliseconds to wait before executing the next task
-            //byte degree = Convert.ToByte(RandomNumber(0, 360)); // Direction pitch, used for defining where the NPC wants to go
 
             int dx = RandomNumber(bot.Pos.X - (8 * 32), bot.Pos.X + (8 * 32)); // Random X location on the map within a 8x8 radius of the bot for the it to walk towards.
             int dz = RandomNumber(bot.Pos.Z - (8 * 32), bot.Pos.Z + (8 * 32)); // Random Z location on the map within a 8x8 radius of the bot for the it to walk towards.
@@ -87,7 +86,7 @@ namespace MCGalaxy
                 bot.AdvanceRotation();
 
                 FaceTowards(bot);
-                //Console.WriteLine("Degree is " + degree.ToString() + "");
+
                 meta.walkTime = walkTime;
                 bot.movement = false;
                 meta.waitTime = waitTime;
