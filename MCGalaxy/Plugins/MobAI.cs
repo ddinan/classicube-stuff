@@ -4,11 +4,12 @@ using System.Threading;
 
 using MCGalaxy.Bots;
 using MCGalaxy.Maths;
+using MCGalaxy.Network;
 
 namespace MCGalaxy
 {
 
-    public sealed class RoamAI : Plugin
+    public sealed class MobAI : Plugin
     {
         BotInstruction hostile;
         BotInstruction roam;
@@ -38,6 +39,12 @@ namespace MCGalaxy
     /* 
         Current AI behaviour:
         
+        -   Chase player if within 12 block range
+        -   Hit player if too close
+        -   Assign movement speed based on mob model
+        -   Explode if mob is a creeper
+
+
         -   50% chance to stand still (moving when 0-2, still when 3-5)
         -   If not moving, wait for waitTime duration before executing next task
         -   Choose random coord within 8x8 block radius of player and try to go to it
@@ -69,7 +76,7 @@ namespace MCGalaxy
             return closest;
         }
 
-        static bool MoveTowards(PlayerBot bot, Player p)
+        static bool MoveTowards(PlayerBot bot, Player p, Metadata meta)
         {
             if (p == null) return false;
 
@@ -84,15 +91,60 @@ namespace MCGalaxy
 
             dx = Math.Abs(dx); dy = Math.Abs(dy); dz = Math.Abs(dz);
 
-            // If we are very close to a player, switch from trying to look
-            // at them to just facing the opposite direction to them
-            if (dx < 4 && dz < 4)
+            if (bot.Model == "creeper")
             {
-                rot.RotY = (byte)(p.Rot.RotY + 128);
+                if (dx < (3 * 32) && dz < (3 * 32))
+                {
+                    if (meta.explodeTime == 0)
+                    {
+                        meta.explodeTime = 10;
+                    }
+                }
+                else meta.explodeTime = 0;
             }
+
+            else
+            {
+                if ((dx <= 8 && dy <= 16 && dz <= 8)) HitPlayer(bot, p, rot);
+            }
+
             bot.Rot = rot;
 
+
             return dx <= 8 && dy <= 16 && dz <= 8;
+        }
+
+        public static void HitPlayer(PlayerBot bot, Player p, Orientation rot)
+        {
+            // Send player backwards if hit
+            // Code "borrowed" from PvP plugin
+
+            int srcHeight = ModelInfo.CalcEyeHeight(bot);
+            int dstHeight = ModelInfo.CalcEyeHeight(p);
+            int dx2 = bot.Pos.X - p.Pos.X, dy2 = (bot.Pos.Y + srcHeight) - (p.Pos.Y + dstHeight), dz2 = bot.Pos.Z - p.Pos.Z;
+
+            Vec3F32 dir2 = new Vec3F32(dx2, dy2, dz2);
+
+            if (dir2.Length > 0) dir2 = Vec3F32.Normalise(dir2);
+
+            float mult = 1 / ModelInfo.GetRawScale(p.Model);
+            float plScale = ModelInfo.GetRawScale(p.Model);
+
+            float VelocityY = 1.0117f * mult;
+
+            if (dir2.Length <= 0) VelocityY = 0;
+
+            if (p.Supports(CpeExt.VelocityControl))
+            {
+                // Intensity of force is in part determined by model scale
+                p.Send(Packet.VelocityControl((-dir2.X * mult) * 0.57f, VelocityY, (-dir2.Z * mult) * 0.57f, 0, 1, 0));
+            }
+
+            // If we are very close to a player, switch from trying to look
+            // at them to just facing the opposite direction to them
+
+            rot.RotY = (byte)(p.Rot.RotY + 128);
+            bot.Rot = rot;
         }
 
         private readonly Random _random = new Random();
@@ -161,17 +213,22 @@ namespace MCGalaxy
         {
             Metadata meta = (Metadata)data.Metadata;
 
-            if (bot.Model == "skeleton") bot.movementSpeed = (int)Math.Round(3m * (short)98 / 100m);
-            if (bot.Model == "zombie") bot.movementSpeed = (int)Math.Round(3m * (short)82 / 100m);
+            if (bot.Model == "skeleton" || bot.Model == "creeper") bot.movementSpeed = (int)Math.Round(3m * (short)97 / 100m);
+            if (bot.Model == "zombie") bot.movementSpeed = (int)Math.Round(3m * (short)9 / 100m);
 
             if (bot.movementSpeed == 0) bot.movementSpeed = 1;
 
             int search = 12;
-            //if (data.Metadata != null) search = (ushort)data.Metadata;
+
             Player closest = ClosestPlayer(bot, search);
 
             if (closest == null)
             {
+                if (bot.Model == "creeper")
+                {
+                    meta.explodeTime = 0;
+                }
+
                 if (meta.walkTime > 0)
                 {
                     meta.walkTime--;
@@ -190,7 +247,34 @@ namespace MCGalaxy
                 bot.NextInstruction();
             }
 
-            bool overlapsPlayer = MoveTowards(bot, closest);
+            else
+            {
+                if (bot.Model == "creeper")
+                {
+                    if (meta.explodeTime > 0)
+                    {
+                        meta.explodeTime--;
+
+                        if (meta.explodeTime == 1)
+                        {
+                            if (closest.level.physics > 1 && closest.level.physics != 5) closest.level.MakeExplosion((ushort)(bot.Pos.X / 32), (ushort)(bot.Pos.Y / 32), (ushort)(bot.Pos.Z / 32), 0);
+                            Command.Find("Effect").Use(closest, "explosion " + (bot.Pos.X / 32) + " " + (bot.Pos.Y / 32) + " " + (bot.Pos.Z / 32) + " 0 0 0 true");
+
+                            Orientation rot = bot.Rot;
+
+                            HitPlayer(bot, closest, rot);
+                            meta.explodeTime = 0;
+                            PlayerBot.Remove(bot);
+                            return true;
+                        }
+
+                        bot.movement = true;
+                        return true;
+                    }
+                }
+            }
+
+            bool overlapsPlayer = MoveTowards(bot, closest, meta);
             if (overlapsPlayer && closest != null) { bot.NextInstruction(); return false; }
 
 
@@ -244,7 +328,7 @@ namespace MCGalaxy
         
      */
 
-    public sealed class Metadata { public int waitTime; public int walkTime; }
+    public sealed class Metadata { public int waitTime; public int walkTime; public int explodeTime; }
 
     sealed class RoamInstruction : BotInstruction
     {
