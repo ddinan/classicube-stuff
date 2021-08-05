@@ -13,7 +13,7 @@ namespace MCGalaxy.Commands.Info
         {
             string[] maps = LevelInfo.AllMapNames();
 
-            List<string> levels = new List<string>(maps);
+            List<string> levels = new List<string>();
 
             string[] args = message.SplitSpaces();
 
@@ -40,6 +40,12 @@ namespace MCGalaxy.Commands.Info
             }
 
             else Help(p);
+
+            if (maps.Length == 0)
+            {
+                p.Message("There are no levels with this permission.");
+                return;
+            }
 
             p.Message(string.Join("%S, " + grp.Color, maps));
         }
