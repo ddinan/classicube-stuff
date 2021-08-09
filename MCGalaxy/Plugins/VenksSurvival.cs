@@ -1,4 +1,4 @@
-/* 
+﻿/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -100,27 +100,10 @@ namespace MCGalaxy
         int moneyStolen = 0; // If economy = true, money stolen when you kill someone
         public static string path = "./plugins/VenksSurvival/"; // Plugin path
 
-        public int MaxMobs = 32;
-        public int init = 0;
-        public int lvlwidth = 0;
-        public int lvllength = 0;
-        public int lvlheight = 0;
-
-        List<Mob> mobs = new List<Mob>();
-        string[] mobtypes = {
-            "chicken",
-            "pig",
-            "sheep",
-            "zombie",
-            "creeper",
-            "skeleton",
-            "spider"
-        };
-
         // Extra plugin integrations
         public static bool useGoodlyEffects = false; // Enable (true) or disable (false) GoodlyEffects integration
 
-        public static string SecretCode = "code"; // Potions secret code
+        public static string SecretCode = "unusedCodeHere"; // Potions secret code
 
         public static int curpid = -1;
         public static List<string> maplist = new List<string>();
@@ -138,13 +121,12 @@ namespace MCGalaxy
             initDB();
 
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
-            OnPlayerClickEvent.Register(HandleMobClick, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
+            OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
             if (drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
             if (regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
             //Server.MainScheduler.QueueRepeat(HandleFall, null, TimeSpan.FromMilliseconds(1)); 
-            if (mobsEnabled) Server.MainScheduler.QueueRepeat(MobsCallback, null, TimeSpan.FromMilliseconds(100));
 
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
@@ -155,7 +137,6 @@ namespace MCGalaxy
             Command.Register(new CmdDropBlock());
             Command.Register(new CmdPickupBlock());
             Command.Register(new CmdSilentHold());
-            //if (mobsEnabled) Command.Register(new CmdSpawnMob());
 
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
@@ -176,23 +157,11 @@ namespace MCGalaxy
 
         public override void Unload(bool shutdown)
         {
-            // Unload mobs
-            Level[] levels = LevelInfo.Loaded.Items;
-            foreach (Level lvl in levels)
-            {
-                int i;
-                for (i = 0; i < mobs.Count; i++)
-                {
-                    mobs[i].deleteClientEntity();
-                    Remove(mobs[i], lvl.name);
-                }
-            }
-
             // Unload events
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
-            if (mobsEnabled) OnPlayerClickEvent.Unregister(HandleMobClick);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
+            OnBlockChangingEvent.Unregister(HandleBlockChanged);
 
             // Unload commands
             Command.Unregister(Command.Find("PvP"));
@@ -204,7 +173,6 @@ namespace MCGalaxy
             Command.Unregister(Command.Find("DropBlock"));
             Command.Unregister(Command.Find("PickupBlock"));
             Command.Unregister(Command.Find("SilentHold"));
-            //Command.Unregister(Command.Find("SpawnMob"));
         }
 
         ColumnDesc[] createPotions = new ColumnDesc[] {
@@ -373,159 +341,7 @@ namespace MCGalaxy
                                 if (players[i, 0] == p.truename)
                                 {
                                     int a = int.Parse(players[i, 1]);
-                                    if (air == 11)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 12)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 13)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 14)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 15)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 16)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 17)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 18)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 19)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 20)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 21)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 22)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 23)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 24)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 25)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 26)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 27)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 28)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 29)
-                                    {
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1) KillPlayer(p, i);
-                                    }
-
-                                    if (air == 30)
+                                    if (air >= 11)
                                     {
                                         players[i, 1] = (a - 1) + "";
                                         SetHpIndicator(i, p);
@@ -696,6 +512,22 @@ namespace MCGalaxy
 
         #region Mining blocks
 
+        string RemoveExcess(string text)
+        {
+            string stopAt = "(";
+            if (!String.IsNullOrWhiteSpace(text))
+            {
+                int charLocation = text.IndexOf(stopAt, StringComparison.Ordinal);
+
+                if (charLocation > 0)
+                {
+                    return text.Substring(0, charLocation);
+                }
+            }
+
+            return String.Empty;
+        }
+
         int FindSlotFor(string[] row, string name)
         {
             for (int col = 1; col <= 36; col++)
@@ -703,70 +535,46 @@ namespace MCGalaxy
                 string contents = row[col];
                 if (contents == "0" || contents.StartsWith(name)) return col;
             }
+
             return 0;
+        }
+
+        int FindActiveSlot(string[] row, string name)
+        {
+            for (int col = 1; col <= 36; col++)
+            {
+                string contents = row[col];
+                if (contents.StartsWith(name)) return col;
+            }
+            return 0;
+        }
+
+        string GetID(BlockID block)
+        {
+            string id = block.ToString();
+            if (Convert.ToInt32(block) >= 66) id = (block - 256).ToString(); // Need to convert block if ID is over 66
+            return "b" + id;
         }
 
         void SaveBlock(Player p, BlockID block)
         {
             string name = Block.GetName(p, block);
 
-            p.Message("You mined 1x " + name);
+            if (name.ToLower().Contains("air") || name.ToLower().Contains("water") || name.ToLower().Contains("lava")) return;
 
             List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
 
             if (pRows.Count == 0)
             {
-                p.Message("You did not have anything saved.");
                 Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
-                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, name + "(0)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(1)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                p.Message("%SNew count: %b1");
                 return;
             }
             else
             {
-                string s1 = pRows[0][1].ToString();
-                string s2 = pRows[0][2].ToString();
-                string s3 = pRows[0][3].ToString();
-                string s4 = pRows[0][4].ToString();
-                string s5 = pRows[0][5].ToString();
-                string s6 = pRows[0][6].ToString();
-                string s7 = pRows[0][7].ToString();
-                string s8 = pRows[0][8].ToString();
-                string s9 = pRows[0][9].ToString();
-                string s10 = pRows[0][10].ToString();
-
-                string s11 = pRows[0][11].ToString();
-                string s12 = pRows[0][12].ToString();
-                string s13 = pRows[0][13].ToString();
-                string s14 = pRows[0][14].ToString();
-                string s15 = pRows[0][15].ToString();
-                string s16 = pRows[0][16].ToString();
-                string s17 = pRows[0][17].ToString();
-                string s18 = pRows[0][18].ToString();
-                string s19 = pRows[0][19].ToString();
-                string s20 = pRows[0][20].ToString();
-
-                string s21 = pRows[0][21].ToString();
-                string s22 = pRows[0][22].ToString();
-                string s23 = pRows[0][23].ToString();
-                string s24 = pRows[0][24].ToString();
-                string s25 = pRows[0][25].ToString();
-                string s26 = pRows[0][26].ToString();
-                string s27 = pRows[0][27].ToString();
-                string s28 = pRows[0][28].ToString();
-                string s29 = pRows[0][29].ToString();
-                string s30 = pRows[0][30].ToString();
-
-                string s31 = pRows[0][31].ToString();
-                string s32 = pRows[0][32].ToString();
-                string s33 = pRows[0][33].ToString();
-                string s34 = pRows[0][34].ToString();
-                string s35 = pRows[0][35].ToString();
-                string s36 = pRows[0][36].ToString();
-
-                int column = FindSlotFor(pRows[0], name);
-
-                p.Message("Column: " + column);
+                int column = FindSlotFor(pRows[0], GetID(block));
 
                 if (column == 0)
                 {
@@ -774,13 +582,59 @@ namespace MCGalaxy
                     return;
                 }
 
+                int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + 1;
 
-                int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(name, "").Replace("(", "").Replace(")", "")) + 1;
+                p.Message("%SNew count: %b" + newCount);
 
-                //p.Message("New count: " + newCount);
-
-                Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, name + "(" + newCount.ToString() + ")");
+                Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
                 return;
+            }
+        }
+
+        void HandleBlockChanged(Player p, ushort x, ushort y, ushort z, BlockID block, bool placing, ref bool cancel)
+        {
+            if (!maplist.Contains(p.level.name)) return;
+            if (!p.level.Config.MOTD.ToLower().Contains("mining=true")) return;
+
+            if (p.invincible || p.Game.Referee)
+            {
+                p.Message("%f╒ &c∩αΓ: &7You cannot modify blocks as a spectator.");
+                p.RevertBlock(x, y, z);
+                cancel = true;
+                return;
+            }
+
+            if (placing)
+            {
+                List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+                if (pRows.Count == 0)
+                {
+                    p.Message("You do not have any of this block.");
+                    p.RevertBlock(x, y, z);
+                    cancel = true;
+                    return;
+                }
+                else
+                {
+                    string name = Block.GetName(p, block);
+                    int column = FindActiveSlot(pRows[0], GetID(block));
+
+                    if (column == 0)
+                    {
+                        p.Message("You do not have any of this block.");
+                        p.RevertBlock(x, y, z);
+                        cancel = true;
+                        return;
+                    }
+
+                    int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) - 1;
+
+                    p.Message("%SNew count: %b" + newCount);
+
+                    if (newCount == 0) Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
+                    else Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+                }
             }
         }
 
@@ -792,10 +646,14 @@ namespace MCGalaxy
                 {
                     if (!blockMining) return;
 
-                    // Get MOTD of map
-                    LevelConfig cfg = LevelInfo.GetConfig(p.level.name, out p.level);
-                    if (!cfg.MOTD.ToLower().Contains("mining=true")) return;
-                    if (p.invincible) return;
+                    if (!p.level.Config.MOTD.ToLower().Contains("mining=true")) return;
+
+                    if (p.invincible || p.Game.Referee)
+                    {
+                        p.Message("%f╒ &c∩αΓ: &7You cannot modify blocks as a spectator.");
+                        return;
+                    }
+                    //if (p.invincible) return;
 
                     if (p.Extras.GetInt("HOLDING_TIME") == 0)
                     {
@@ -967,10 +825,12 @@ namespace MCGalaxy
                                                     p.Message("You cannot kill people.");
                                                     return;
                                                 }
+
                                                 if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
                                                 { // If both not in a safezone
                                                     if (p.Game.Referee) return;
                                                     if (pl.Game.Referee) return;
+                                                    if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
 
                                                     int a = int.Parse(players[i, 1]);
 
@@ -989,7 +849,7 @@ namespace MCGalaxy
                                                         }
                                                         else players[i, 1] = (a - 1) + "";
 
-                                                        if (a >= 0)
+                                                        if (a > 0)
                                                         {
                                                             p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
                                                         }
@@ -1113,11 +973,13 @@ namespace MCGalaxy
 
         static void PushPlayer(Player p, Player pl)
         {
+            if (p.level.Config.MOTD.ToLower().Contains("-damage")) return;
+
             int srcHeight = ModelInfo.CalcEyeHeight(p);
             int dstHeight = ModelInfo.CalcEyeHeight(pl);
             int dx = p.Pos.X - pl.Pos.X, dy = (p.Pos.Y + srcHeight) - (pl.Pos.Y + dstHeight), dz = p.Pos.Z - pl.Pos.Z;
             Vec3F32 dir = new Vec3F32(dx, dy, dz);
-            dir = Vec3F32.Normalise(dir);
+            if (dir.Length > 0) dir = Vec3F32.Normalise(dir);
 
             float mult = 1 / ModelInfo.GetRawScale(pl.Model);
             float plScale = ModelInfo.GetRawScale(pl.Model);
@@ -1133,41 +995,14 @@ namespace MCGalaxy
             }
         }
 
-        void HandleMobClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
-        {
-            int i;
-            for (i = 0; i < mobs.Count; i++)
-            {
-                if (mobs[i].ID == entity)
-                {
-                    if (calculDistance(p.Pos, mobs[i]._pos) < 200)
-                        mobs[i].HurtByPlayer(1, p);
-                }
-            }
-            p.SendCpeMessage(CpeMessageType.Status1, "mobs.count=" + mobs.Count);
-        }
-
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
-            // Handle mobs
-            if (mobsEnabled)
+            if (blockMining)
             {
-                int m = 0;
-                Random rnd = new Random();
-                if (maplist.Contains(p.level.name) && init == 0)
+                if (gamemodeOnly)
                 {
-                    lvlwidth = level.Width;
-                    lvllength = level.Length;
-                    lvlheight = level.Height - 2;
-                    for (m = 0; m < MaxMobs; m++)
-                    {
-                        spawnMob(rnd.Next(0, lvlwidth), lvlheight, rnd.Next(0, lvlheight), mobtypes[rnd.Next(0, 7)], p.level.name, (byte)(100 + m));
-                    }
-                    init = 1;
-                }
-                for (m = 0; m < mobs.Count; m++)
-                {
-                    mobs[m].createClientEntity();
+                    List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+                    if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
                 }
             }
 
@@ -1550,401 +1385,6 @@ namespace MCGalaxy
             }
         }
         #endregion
-
-        #region Mobs
-
-        public void Remove(Mob m, string level)
-        {
-            Mob newm = null;
-            Random rnd = new Random();
-            byte nextid;
-            nextid = m.ID;
-            mobs.Remove(m);
-            newm = spawnMob(rnd.Next(0, lvlwidth), lvlheight, rnd.Next(0, lvllength), mobtypes[rnd.Next(0, 7)], level, (byte)(nextid));
-            newm.createClientEntity();
-        }
-
-        Mob spawnMob(int X, int Y, int Z, string model, string map, byte sID)
-        {
-            Mob mob = new Mob();
-            mob.SurvivalMob(X, Y, Z, model, map, (byte)sID, this);
-            mobs.Add(mob);
-            return mob;
-        }
-
-        public static void cmdSpawnMob(int x, int y, int z, string model, string map, PvP M)
-        {
-            Mob mob = new Mob();
-            mob.SurvivalMob(x, y, z, model, map, (byte)(M.mobs.Count + 2 + 100), M);
-            M.mobs.Add(mob);
-            mob.createClientEntity();
-            //spawnMob(x,y,z,model,map,(byte)(mobs.Count+1));
-        }
-
-        void MobsCallback(SchedulerTask task)
-        {
-            int i;
-            for (i = 0; i < mobs.Count; i++)
-            {
-                mobs[i].Update();
-            }
-        }
-
-        public int calculDistance(Position a, Position b)
-        {
-            float deltaX = a.X - b.X;
-            float deltaY = a.Y - b.Y;
-            float deltaZ = a.Z - b.Z;
-            int distance = (int)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
-            return distance;
-        }
-        #endregion
-    }
-
-    public class Mob
-    {
-        public byte ID = 0;
-        public int hp = 10;
-
-        private int _count;
-        private int _attackCount;
-
-        private PvP _survivalMobs;
-        public Position _pos;
-        public Position pos
-        {
-            get
-            {
-                return _pos;
-            }
-        }
-        protected Orientation _rot;
-        private bool _canJump = false;
-        protected bool _beenHurted = false;
-        private int _refreshClientCount = 0;
-        private int _swimCount = 0;
-        public string _model = "";
-        protected string _curMap = "";
-        protected int _speedX = 0;
-        protected int _speedY = 0;
-        protected int _speedZ = 0;
-        protected int _VelX = 0;
-        protected int _VelY = 0;
-        protected int _VelZ = 0;
-        protected int _width = 32;
-        protected int _height = 64;
-        public void SurvivalMob(int X, int Y, int Z, string model, string map, byte sID, PvP m)
-        {
-            ID = sID;
-            _pos = new Position(X * 32, Y * 32, Z * 32);
-            _rot = new Orientation();
-            _model = model;
-            _curMap = map;
-            _speedX = 4;
-            _survivalMobs = m;
-        }
-        public bool HitTestMap()
-        {
-            Level map = LevelInfo.FindExact(_curMap);
-            int minX = _pos.X / 32 - 2;
-            int maxX = _pos.X / 32 + 2;
-            int minY = _pos.Y / 32 - 2;
-            int maxY = _pos.Y / 32 + 2;
-            int minZ = _pos.Z / 32 - 2;
-            int maxZ = _pos.Z / 32 + 2;
-            for (int i = minY; i <= maxY; i++)
-            {
-                for (int j = minX; j <= maxX; j++)
-                {
-                    for (int k = minZ; k <= maxZ; k++)
-                    {
-                        if (!CollideType.IsSolid(map.CollideType((map.GetBlock((ushort)(j), (ushort)(i), (ushort)(k)))))) continue;
-                        bool touchX = _pos.X + _width > (j * 32) && _pos.X < ((j + 1) * 32);
-                        bool touchY = (_pos.Y - 32) + _height > (i * 32) && (_pos.Y - 32) < ((i + 1) * 32);
-                        bool touchZ = _pos.Z + _width > (k * 32) && _pos.Z < ((k + 1) * 32);
-                        if (touchX && touchY && touchZ) return true;
-                    }
-                }
-            }
-            return false;
-        }
-        public bool HitTestPlayer(Player p)
-        {
-            bool touchX = _pos.X + _width + 16 > p.Pos.X + p.ModelBB.BlockMin.X && _pos.X - 16 < p.Pos.X + p.ModelBB.BlockMax.X;
-            bool touchY = _pos.Y + _height > p.Pos.Y + p.ModelBB.BlockMin.Y && _pos.Y < p.Pos.Y + p.ModelBB.BlockMax.Y;
-            bool touchZ = _pos.Z + _width + 16 > p.Pos.Z + p.ModelBB.BlockMin.Z && _pos.Z - 16 < p.Pos.Z + p.ModelBB.BlockMax.Z;
-            if (touchX && touchY && touchZ) return true;
-            return false;
-        }
-        public void createClientEntity()
-        {
-            foreach (Player p in PlayerInfo.Online.Items)
-            {
-                if (p.level.name != _curMap) continue;
-                p.Send(Packet.AddEntity(ID, "", _pos, _rot, true, true));
-                p.Send(Packet.ChangeModel(ID, _model, true));
-            }
-        }
-        public void deleteClientEntity()
-        {
-            foreach (Player p in PlayerInfo.Online.Items)
-            {
-                if (p.level.name == _curMap)
-                    p.Send(Packet.RemoveEntity(ID));
-            }
-        }
-        public void HurtByPlayer(int damage, Player p)
-        {
-            // Knockback
-            int a = p.Pos.X - _pos.X;
-            int b = p.Pos.Z - _pos.Z;
-            int angle = (int)(Math.Atan2(b, a));
-            _VelX = -(int)(Math.Cos(angle) * 15);
-            _VelZ = -(int)(Math.Sin(angle) * 15);
-            _VelY = 11;
-            // Damage
-            Hurt(damage, p);
-            _beenHurted = true;
-        }
-        private void Hurt(int damage, Player p)
-        {
-            hp -= damage;
-            if (hp <= 0)
-            {
-                p.SetMoney(p.money + 5);
-                p.Message("Gained 5 %b" + Server.Config.Currency);
-                Remove(ID, p.level.name);
-                return;
-            }
-        }
-
-        public Player getClosestPlayerFrom(float x, float y, float z, string map)
-        {
-            float deltaX;
-            float deltaY;
-            float deltaZ;
-            Player pl = null;
-            float lastd = 120000;
-
-            foreach (Player p in PlayerInfo.Online.Items)
-            {
-                if (p.level.name == map)
-                {
-                    deltaX = x - p.Pos.X;
-                    deltaY = y - p.Pos.Y;
-                    deltaZ = z - p.Pos.Z;
-                    float distance = (float)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
-                    if (distance < lastd)
-                    {
-                        pl = p;
-                        lastd = distance;
-                    }
-                }
-            }
-            if (pl != null)
-            {
-                return pl;
-            }
-            return null;
-        }
-
-        public int calculDistance(Position a, Position b)
-        {
-            float deltaX = a.X - b.X;
-            float deltaY = a.Y - b.Y;
-            float deltaZ = a.Z - b.Z;
-            int distance = (int)Math.Abs(Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ));
-            return distance;
-        }
-
-        void Remove(int id, string level)
-        {
-            if (this.ID == id)
-            {
-                deleteClientEntity();
-                _survivalMobs.Remove(this, this._curMap);
-            }
-        }
-
-        private void Attack()
-        {
-            foreach (Player pl in PlayerInfo.Online.Items)
-            {
-                if (pl.level.name == _curMap)
-                {
-                    int dist = calculDistance(pl.Pos, _pos);
-                    if (dist > _width + _height) continue;
-                    if (HitTestPlayer(pl))
-                    {
-                        pl.HandleDeath(Block.Stone, "@p %c" + "was killed by a " + _model, false, false);
-                    }
-                }
-            }
-        }
-
-        public int eUpdate()
-        {
-            _attackCount++;
-            if (_attackCount > 10)
-            {
-                _attackCount = 0;
-                Attack();
-            }
-
-            Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
-            if (p != null)
-            {
-                int dist = calculDistance(p.Pos, _pos);
-                /*if (dist > 4096) {
-                    Remove(ID);
-                    return 1;
-                }*/
-                if (dist > 250)
-                {
-                    _speedX = 0;
-                    _speedZ = 0;
-                    UpdatePosition();
-                    return 0;
-                }
-                int a = p.Pos.X - _pos.X;
-                int b = p.Pos.Z - _pos.Z;
-                int angle = (int)(Math.Atan2(b, a));
-                _speedX = (int)(Math.Cos(angle) * 5);
-                _speedZ = (int)(Math.Sin(angle) * 5);
-                Vec3F32 dir = new Vec3F32(a, 0, b);
-                dir = Vec3F32.Normalise(dir);
-                DirUtils.GetYawPitch(dir, out _rot.RotY, out _rot.HeadX);
-            }
-            UpdatePosition();
-            return 0;
-        }
-
-        public int aUpdate()
-        {
-            Player p = getClosestPlayerFrom(_pos.X, _pos.Y, _pos.Z, _curMap);
-            if (p != null)
-            {
-                int dist = calculDistance(p.Pos, _pos);
-                /*if (dist > 2048) {
-                    Remove(ID);
-                    return 1;
-                }*/
-                if (dist > 256 || !_beenHurted)
-                {
-                    _count++;
-                    if (_count > 100)
-                    {
-                        _count = 0;
-                        Random rnd = new Random();
-                        _speedX = rnd.Next(-2, 3);
-                        _speedZ = rnd.Next(-2, 3);
-                    }
-                    int a2 = _pos.X - _pos.X + _speedX;
-                    int b2 = _pos.Z - _pos.Z + _speedZ;
-                    Vec3F32 dir2 = new Vec3F32(a2, 0, b2);
-                    dir2 = Vec3F32.Normalise(dir2);
-                    DirUtils.GetYawPitch(dir2, out _rot.RotY, out _rot.HeadX);
-                    UpdatePosition();
-                    return 0;
-                }
-                int a = _pos.X - p.Pos.X;
-                int b = _pos.Z - p.Pos.Z;
-                int angle = (int)(Math.Atan2(b, a));
-                _speedX = (int)(Math.Cos(angle) * 5);
-                _speedZ = (int)(Math.Sin(angle) * 5);
-                Vec3F32 dir = new Vec3F32(a, 0, b);
-                dir = Vec3F32.Normalise(dir);
-                DirUtils.GetYawPitch(dir, out _rot.RotY, out _rot.HeadX);
-            }
-            UpdatePosition();
-            return 0;
-        }
-        public virtual int Update()
-        {
-            if (_model == "pig" || _model == "sheep" || _model == "chicken")
-                aUpdate();
-            else
-                eUpdate();
-            UpdatePosition();
-            return 0;
-        }
-        public void Jump()
-        {
-            if (_canJump)
-            {
-                _canJump = false;
-                _speedY = 9;
-            }
-        }
-        public void UpdatePosition()
-        {
-            //Refresh every 30secs to prevent invisible mobs bug
-            _refreshClientCount++;
-            if (_refreshClientCount >= 1000)
-            {
-                _refreshClientCount = 0;
-                createClientEntity();
-            }
-            //Swiming
-            Level map = LevelInfo.FindExact(_curMap);
-            ushort block = map.GetBlock((ushort)_pos.BlockX, (ushort)_pos.BlockY, (ushort)_pos.BlockZ);
-            byte collide = map.CollideType(block);
-            Random rnd = new Random();
-            if (collide == CollideType.SwimThrough)
-            {
-                _swimCount++;
-                if (_swimCount > 20)
-                {
-                    _speedY = 3;
-                    if (_swimCount > 60)
-                    {
-                        _swimCount = 0;
-                    }
-                }
-                else
-                {
-                    _speedY = -1;
-                }
-            }
-            _speedY--;
-            if (_VelX > 0) _VelX--;
-            if (_VelX < 0) _VelX++;
-            if (_VelY > 0) _VelY--;
-            if (_VelY < 0) _VelY++;
-            if (_VelZ > 0) _VelZ--;
-            if (_VelZ < 0) _VelZ++;
-            int oldX = _pos.X;
-            _pos.X += _speedX + _VelX;
-            if (HitTestMap())
-            {
-                _pos.X = oldX;
-                Jump();
-            }
-            int oldY = _pos.Y;
-            _pos.Y += _speedY + _VelY;
-            if (HitTestMap())
-            {
-                if (_speedY < 0)
-                {
-                    _canJump = true;
-                }
-                _speedY = 0;
-                _pos.Y = oldY;
-            }
-            int oldZ = _pos.Z;
-            _pos.Z += _speedZ + _VelZ;
-            if (HitTestMap())
-            {
-                _pos.Z = oldZ;
-                Jump();
-            }
-            foreach (Player p in PlayerInfo.Online.Items)
-            {
-                if (p.level.name != _curMap) continue;
-                Position fakePos = new Position(_pos.X + 16, _pos.Y + 17, _pos.Z + 16);
-                p.Send(Packet.Teleport(ID, fakePos, _rot, true));
-            }
-        }
     }
 
     public sealed class CmdPvP : Command2
@@ -2697,7 +2137,7 @@ namespace MCGalaxy
 
             string[] args = message.SplitSpaces(3);
 
-            List<string[]> rows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+            List<string[]> rows = Database.GetRows("Potions", "*", "WHERE Name=@0", p.truename);
 
             if (args[0].Length == 0)
             {
@@ -2709,7 +2149,7 @@ namespace MCGalaxy
             }
             else
             {
-                List<string[]> pRows = Database.GetRows("Potions", "Name, Health, Speed, Invisible, Jump, Waterbreathing, Strength, Slowness, Blindness", "WHERE Name=@0", p.truename);
+                List<string[]> pRows = Database.GetRows("Potions", "*", "WHERE Name=@0", p.truename);
                 if (args[0] == PvP.SecretCode && args.Length >= 3)
                 { // Used for getting potions
                     string item = args[1].ToLower();
@@ -3156,71 +2596,6 @@ namespace MCGalaxy
             p.Message("%HMakes you hold the given block in your hand");
             p.Message("%H  <locked> optionally prevents you from changing it");
             p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
-        }
-    }
-
-    public sealed class CmdSpawnMob : Command2
-    {
-        public override string name
-        {
-            get
-            {
-                return "SpawnMob";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Operator;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        PvP mainm;
-
-        public CmdSpawnMob(PvP m)
-        {
-            mainm = m;
-        }
-
-        public override void Use(Player p, string message, CommandData data)
-        {
-            int n;
-            if (message.Length == 0)
-            {
-                Help(p);
-                return;
-            }
-            string[] args = message.SplitSpaces(8);
-
-            PvP.cmdSpawnMob(p.Pos.X / 32, p.Pos.Y / 32, p.Pos.Z / 32, args[0], "survival", mainm);
-            p.Message("Spawning " + args[0] + " at " + p.Pos.X / 32 + "," + p.Pos.Y / 32 + "," + p.Pos.Z / 32);
-        }
-
-        public override void Help(Player p)
-        {
-            p.Message("%T/SpawnMob <mob> %H- Spawns a specified mob");
         }
     }
 }
