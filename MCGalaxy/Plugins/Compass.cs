@@ -12,8 +12,15 @@ namespace MCGalaxy {
         public override string name { get { return "Compass"; } }
 
         public override void Load(bool startup) {
-            Server.MainScheduler.QueueRepeat(CheckDirection, null, TimeSpan.FromMilliseconds(100));
+            task = Server.MainScheduler.QueueRepeat(CheckDirection, null, TimeSpan.FromMilliseconds(100));
         }
+
+        public override void Unload(bool shutdown) {
+            Server.MainScheduler.Cancel(task);
+        }
+
+        // UnknownShadow200 helped me with the scheduler so I thought I could help you too.
+        // You must be able to unload this properly.
 
         void CheckDirection(SchedulerTask task) {
             Player[] players = PlayerInfo.Online.Items;
@@ -59,7 +66,5 @@ namespace MCGalaxy {
                 }
             }
         }
-
-        public override void Unload(bool shutdown) {}
     }
 }

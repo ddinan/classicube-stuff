@@ -23,7 +23,12 @@ namespace Core
 
         public override void Load(bool startup)
         {
+            if (!Directory.Exists("plugins/DiscordVerify")) Directory.CreateDirectory("plugins/DiscordVerify");
+            // If the directory does not exist, then we will just create it.
+            if (!File.Exists("plugins/DiscordVerify/verified.txt")) File.Create("plugins/DiscordVerify/verified.txt");
+            // If the file does not exist, then we will also create that file. We don't want our user to do it manually.
             verified = PlayerExtList.Load("plugins/DiscordVerify/verified.txt");
+            // Purpose is not to have it break.
             OnChannelMessageEvent.Register(HandleDiscordMessage, Priority.High);
 
             Command.Register(new CmdVerify());
