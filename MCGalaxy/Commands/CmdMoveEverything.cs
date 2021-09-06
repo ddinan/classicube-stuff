@@ -84,6 +84,14 @@ public class CmdMoveEverything : Command2
             int y2 = pos.Y + y;
             int z2 = pos.Z + z;
 
+            if (!p.level.IsValidPos(x2, y2, z2))
+            {
+                p.Message("%cMB at %b" + pos.X + " " + pos.Y + " " + pos.Z + " %cwas outside of the map bounds, deleting.");
+                MessageBlock.Delete(p.level.name, pos.X, pos.Y, pos.Z);
+                p.level.UpdateBlock(p, pos.X, pos.Y, pos.Z, Block.Air);
+                continue;
+            }
+
             // Create new MBs
             MessageBlock.Set(p.level.name, (ushort)x2, (ushort)y2, (ushort)z2, message);
             p.level.UpdateBlock(p, (ushort)x2, (ushort)y2, (ushort)z2, block);
@@ -122,6 +130,14 @@ public class CmdMoveEverything : Command2
             int dx = exit.X + x;
             int dy = exit.Y + y;
             int dz = exit.Z + z;
+
+            if (!p.level.IsValidPos(x2, y2, z2))
+            {
+                p.Message("%cPortal at %b" + pos.X + " " + pos.Y + " " + pos.Z + " %cwas outside of the map bounds, deleting.");
+                Portal.Delete(p.level.name, pos.X, pos.Y, pos.Z);
+                p.level.UpdateBlock(p, pos.X, pos.Y, pos.Z, Block.Air);
+                continue;
+            }
 
             // Create new portals
             Portal.Set(p.level.name, (ushort)x2, (ushort)y2, (ushort)z2, (ushort)dx, (ushort)dy, (ushort)dz, exit.Map);
