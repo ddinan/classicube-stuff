@@ -2,6 +2,9 @@
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
+
+  This plugin requires my VenkLib plugin. Install it from here: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/VenkLib.cs.
+
   1. PING MAY AFFECT PVP.
   2. FALL DAMAGE IS A HUGE WIP, USE AT OWN RISK.
   3. THE CODE (╫) IS USED FOR THE HALF-HEART EMOJI, YOU MAY NEED TO CHANGE THIS.
@@ -32,11 +35,13 @@
   
   IF YOU WANT TO SHOW THE BLOCK YOU'RE HOLDING TO OTHER PLAYERS:
   1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
+
+  IF YOU WANT MOB INSTRUCTIONS:
+  1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
-  2. Mobs.
-  3. Hunger?
+  2. Hunger?
   
  */
 
@@ -81,13 +86,13 @@ namespace MCGalaxy
         {
             get
             {
-                return "Venk and Sirvoid"; // Credit to FaeEmpress for most of the mob code
+                return "Venk and Sirvoid";
             }
         }
 
         // Settings
         public static string MaxHp = "20"; // Max players HP (10*2)
-        public static bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
+        public static bool gamemodeOnly = true; // Enable (true) or disable (false) manually setting permissions
         // For instance in Murder Mystery, I don't want regulars to be able to PvP
         // but I do want killers/detectives to be able to
         bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
@@ -136,7 +141,6 @@ namespace MCGalaxy
             Command.Register(new CmdPotion());
             Command.Register(new CmdDropBlock());
             Command.Register(new CmdPickupBlock());
-            Command.Register(new CmdSilentHold());
 
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
@@ -172,7 +176,6 @@ namespace MCGalaxy
             Command.Unregister(Command.Find("Potion"));
             Command.Unregister(Command.Find("DropBlock"));
             Command.Unregister(Command.Find("PickupBlock"));
-            Command.Unregister(Command.Find("SilentHold"));
         }
 
         ColumnDesc[] createPotions = new ColumnDesc[] {
@@ -2513,89 +2516,5 @@ namespace MCGalaxy
         }
 
         public override void Help(Player p) { }
-    }
-
-    public class CmdSilentHold : Command2
-    {
-        public override string name
-        {
-            get
-            {
-                return "SilentHold";
-            }
-        }
-        public override string shortcut
-        {
-            get
-            {
-                return "";
-            }
-        }
-        public override bool MessageBlockRestricted
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return "other";
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Guest;
-            }
-        }
-
-        public override void Use(Player p, string message, CommandData data)
-        {
-            if (message.Length == 0)
-            {
-                Help(p);
-                return;
-            }
-            if (!p.Supports(CpeExt.HeldBlock))
-            {
-                p.Message("Your client doesn't support changing your held block.");
-                return;
-            }
-            string[] args = message.SplitSpaces(2);
-
-            BlockID block;
-            if (!CommandParser.GetBlock(p, args[0], out block)) return;
-            bool locked = false;
-            if (args.Length > 1 && !CommandParser.GetBool(p, args[1], ref locked)) return;
-
-            if (Block.IsPhysicsType(block))
-            {
-                p.Message("Cannot hold physics blocks");
-                return;
-            }
-
-            BlockID raw = p.ConvertBlock(block);
-            p.Send(Packet.HoldThis(raw, locked, p.hasExtBlocks));
-            //p.Message("Set your held block to {0}.", Block.GetName(p, block));
-        }
-
-        public override void Help(Player p)
-        {
-            p.Message("%T/SilentHold [block] <locked>");
-            p.Message("%HMakes you hold the given block in your hand");
-            p.Message("%H  <locked> optionally prevents you from changing it");
-            p.Message("%HLiterally the same as /hold but it doesn't send a msg to the player.");
-        }
     }
 }
