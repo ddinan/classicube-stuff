@@ -66,7 +66,7 @@ namespace MCGalaxy {
             int amount = 10;
             Player winner = online[0];
             if (online.Count == 1) {
-                winner.SendMessage("Your money was refunded as you were " +
+                winner.Message("Your money was refunded as you were " +
                                    "the only player still in the lottery.");
             } else {
                 Random rand = new Random();
