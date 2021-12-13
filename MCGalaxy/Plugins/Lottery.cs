@@ -42,7 +42,7 @@ namespace MCGalaxy {
         public override string shortcut { get { return "luck"; } }
         public override string type { get { return CommandTypes.Games; } }
         public override bool museumUsable { get { return true; } }
-       // public override CommandEnable Enabled { get { return CommandEnable.Zombie | CommandEnable.Lava; } }     // removed "//" if you want this enabled for zs and ls only.
+        //public override CommandEnable Enabled { get { return CommandEnable.Zombie | CommandEnable.Lava; } } //remove the // if you want /lottery allowed only for ZS or LS.
         public override bool SuperUseable { get { return false; } }
         
         public static VolatileArray<string> Lottery = new VolatileArray<string>();
