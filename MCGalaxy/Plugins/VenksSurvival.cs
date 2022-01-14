@@ -1,4 +1,4 @@
-﻿/* 
+/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -68,31 +68,13 @@ namespace MCGalaxy
 {
     public class PvP : Plugin
     {
-        public override string name
-        {
-            get
-            {
-                return "&aVenk's Survival%S"; // To unload: /punload Survival
-            }
-        }
-        public override string MCGalaxy_Version
-        {
-            get
-            {
-                return "1.9.2.8";
-            }
-        }
-        public override string creator
-        {
-            get
-            {
-                return "Venk and Sirvoid";
-            }
-        }
+        public override string name { get { return "&aVenk's Survival%S"; } } // To unload /punload Survival
+        public override string MCGalaxy_Version { get { return "1.9.2.8"; } }
+        public override string creator { get { return "Venk and Sirvoid"; } }
 
         // Settings
         public static string MaxHp = "20"; // Max players HP (10*2)
-        public static bool gamemodeOnly = true; // Enable (true) or disable (false) manually setting permissions
+        public static bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
         // For instance in Murder Mystery, I don't want regulars to be able to PvP
         // but I do want killers/detectives to be able to
         bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
@@ -106,7 +88,7 @@ namespace MCGalaxy
         public static string path = "./plugins/VenksSurvival/"; // Plugin path
 
         // Extra plugin integrations
-        public static bool useGoodlyEffects = false; // Enable (true) or disable (false) GoodlyEffects integration
+        public static bool useGoodlyEffects = true; // Enable (true) or disable (false) GoodlyEffects integration
 
         public static string SecretCode = "unusedCodeHere"; // Potions secret code
 
@@ -663,13 +645,29 @@ namespace MCGalaxy
                         p.Extras["MINING_COORDS"] = x + "_" + y + "_" + z;
                     }
 
+                    float px = Convert.ToSingle(x), py = Convert.ToSingle(y), pz = Convert.ToSingle(z);
+
+                    // Offset particle in the center of the block
+
+                    px += 0.5f;
+                    py += 0.31f;
+                    pz += 0.5f;
+
                     if (action == MouseAction.Pressed)
                     {
                         string coords = p.Extras.GetString("MINING_COORDS");
                         if (coords != (x + "_" + y + "_" + z))
                         {
                             p.Extras["HOLDING_TIME"] = 0;
+                            p.Extras["MINING"] = false;
                             p.Extras["MINING_COORDS"] = 0;
+
+                            if (useGoodlyEffects)
+                            {
+                                // Despawn break particle
+                                p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                            }
+
                             return;
                         }
                         int heldFor = p.Extras.GetInt("HOLDING_TIME");
@@ -691,6 +689,19 @@ namespace MCGalaxy
                         // Check if block type and tool type go together
                         // Assign speed of tool based on tool type
                         // Get block durability, times by 125 then divide by the speed of the tool
+
+                        float miningSpeed = 0f;
+                        float baseLifetime = 1f;
+
+                        // Position particle towards respective block face
+
+                        if (face == TargetBlockFace.AwayX) px += 0.5625f;
+                        if (face == TargetBlockFace.AwayY) py += 0.5f;
+                        if (face == TargetBlockFace.AwayZ) pz += 0.5625f;
+                        if (face == TargetBlockFace.TowardsX) px -= 0.5625f;
+                        if (face == TargetBlockFace.TowardsY) py -= 0.5f;
+                        if (face == TargetBlockFace.TowardsZ) pz -= 0.5625f;
+
                         if (blockstats[2] == "0")
                         {
                             SaveBlock(p, clickedBlock);
@@ -698,28 +709,50 @@ namespace MCGalaxy
                             return;
                         }
 
+                        else
+                        {
+                            miningSpeed = Convert.ToSingle((int.Parse(blockstats[2]) - 4) * 0.1);
+                            baseLifetime = miningSpeed + 0.75f;
+                        }
+
                         if (toolstats[2] == "0")
                         {
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 175) / toolSpeed;
+                            int speed = (blockSpeed * 140) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
+                            // 140ms per hit. E.g, leaves takes 2 hits so 180ms to break
+
                             if (duration > TimeSpan.FromMilliseconds(speed))
-                            { // 100ms per hit, leaves takes 2 hits so 200ms to break
+                            {
+
                                 SaveBlock(p, clickedBlock);
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
+                                p.Extras["MINING"] = false;
                                 p.Extras["MINING_COORDS"] = 0;
                                 return;
                             }
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
+
+                            if (useGoodlyEffects)
+                            {
+                                if (!p.Extras.GetBoolean("MINING"))
+                                {
+                                    // Spawn break particle
+                                    float life = 1f;
+                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 16, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
+                                    p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
+                                    p.Extras["MINING"] = true;
+                                }
+                            }
                         }
                         else
                         {
                             int toolSpeed = Int32.Parse(toolstats[2]);
                             int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 100) / toolSpeed;
+                            int speed = (blockSpeed * 140) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
@@ -728,15 +761,39 @@ namespace MCGalaxy
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
+
+                                if (useGoodlyEffects)
+                                {
+                                    // Despawn break particle
+                                    p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                                }
                                 return;
                             }
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
+
+                            if (useGoodlyEffects)
+                            {
+                                if (!p.Extras.GetBoolean("MINING"))
+                                {
+                                    // Spawn break particle
+                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 16, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
+                                    p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
+                                    p.Extras["MINING"] = true;
+                                }
+                            }
                         }
                     }
                     else if (action == MouseAction.Released)
                     {
                         p.Extras["HOLDING_TIME"] = 0;
+                        p.Extras["MINING"] = false;
                         p.Extras["MINING_COORDS"] = 0;
+
+                        if (useGoodlyEffects)
+                        {
+                            // Despawn break particle
+                            p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                        }
                     }
                 }
             }
@@ -818,103 +875,103 @@ namespace MCGalaxy
                                     {
                                         if (players[i, 0] == pl.name)
                                         {
-                                            if (i < 100)
+                                            if (pl.invincible) return;
+                                            // Check if they can kill players, as determined by gamemode plugins
+                                            bool canKill = gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+                                            if (!canKill)
                                             {
-                                                if (pl.invincible) return;
-                                                // Check if they can kill players, as determined by gamemode plugins
-                                                bool canKill = gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
-                                                if (!canKill)
+                                                p.Message("You cannot kill people.");
+                                                return;
+                                            }
+
+                                            // If both players are not in safezones
+                                            if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
+                                            {
+                                                if (p.Game.Referee) return;
+                                                if (pl.Game.Referee) return;
+                                                if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
+
+                                                int a = int.Parse(players[i, 1]);
+
+                                                BlockID b = p.GetHeldBlock();
+                                                string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
+                                                //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
+
+                                                if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] == "0")
                                                 {
-                                                    p.Message("You cannot kill people.");
-                                                    return;
-                                                }
-
-                                                if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
-                                                { // If both not in a safezone
-                                                    if (p.Game.Referee) return;
-                                                    if (pl.Game.Referee) return;
-                                                    if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
-
-                                                    int a = int.Parse(players[i, 1]);
-
-                                                    BlockID b = p.GetHeldBlock();
-                                                    string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                                                    //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
-
-                                                    if (hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0")
+                                                    // Calculate damage from weapon
+                                                    int damage = 1;
+                                                    if (weaponstats[0] != "0")
                                                     {
-                                                        // Calculate damage from weapon
-                                                        int damage = 1;
-                                                        if (weaponstats[0] != "0")
+                                                        damage = Int32.Parse(weaponstats[1]);
+                                                        players[i, 1] = (a - damage) + "";
+                                                    }
+                                                    else players[i, 1] = (a - 1) + "";
+
+                                                    if (a > 0)
+                                                    {
+                                                        p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
+                                                    }
+                                                    SetHpIndicator(i, pl);
+
+                                                    if (a <= 0)
+                                                    { // If player killed them
+                                                        string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
+                                                        pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
+                                                        pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
+                                                        pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
+                                                        pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
+                                                                                      // Use string killedBy = p.Extras.GetInt("KILLEDBY") to get the player who killed them
+                                                                                      // Use string killer = p.Extras.GetInt("KILLER") to get the killer
+
+                                                        pl.HandleDeath(Block.Stone);
+                                                        p.Extras.Remove("DROWNING");
+                                                        //pl.Game.Referee = true;
+
+                                                        players[i, 1] = MaxHp;
+
+                                                        pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+
+                                                        if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                         {
-                                                            damage = Int32.Parse(weaponstats[1]);
-                                                            players[i, 1] = (a - damage) + "";
-                                                        }
-                                                        else players[i, 1] = (a - 1) + "";
-
-                                                        if (a > 0)
-                                                        {
-                                                            p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
-                                                        }
-                                                        SetHpIndicator(i, pl);
-
-                                                        if (a <= 0)
-                                                        { // If player killed them
-                                                            string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
-                                                            pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
-                                                            pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
-                                                            pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
-                                                            pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
-                                                            // Use string killedBy = p.Extras.GetInt("KILLEDBY") to get the player who killed them
-                                                            // Use string killer = p.Extras.GetInt("KILLER") to get the killer
-
-                                                            pl.HandleDeath(Block.Stone);
-                                                            p.Extras.Remove("DROWNING");
-                                                            //pl.Game.Referee = true;
-
-                                                            players[i, 1] = MaxHp;
-
-                                                            pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
-
-                                                            if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
+                                                            if (pl.money > moneyStolen - 1)
                                                             {
-                                                                if (pl.money > moneyStolen - 1)
+                                                                p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
+                                                                pl.Message(p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
+                                                                p.SetMoney(p.money + moneyStolen);
+                                                                pl.SetMoney(pl.money - moneyStolen);
+
+                                                                MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
+                                                                if (bounty != null)
                                                                 {
-                                                                    p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-                                                                    pl.Message(p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
-                                                                    p.SetMoney(p.money + moneyStolen);
-                                                                    pl.SetMoney(pl.money - moneyStolen);
+                                                                    ZSGame.Instance.Bounties.Remove(bounty);
+                                                                    Player setter = PlayerInfo.FindExact(bounty.Origin);
 
-                                                                    MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
-                                                                    if (bounty != null)
+                                                                    if (setter == null)
                                                                     {
-                                                                        ZSGame.Instance.Bounties.Remove(bounty);
-                                                                        Player setter = PlayerInfo.FindExact(bounty.Origin);
-
-                                                                        if (setter == null)
-                                                                        {
-                                                                            p.Message("Cannot collect the bounty, as the player who set it is offline.");
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
-                                                                                bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
-                                                                            p.SetMoney(p.money + bounty.Amount);
-                                                                        }
+                                                                        p.Message("Cannot collect the bounty, as the player who set it is offline.");
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
+                                                                            bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
+                                                                        p.SetMoney(p.money + bounty.Amount);
                                                                     }
                                                                 }
                                                             }
                                                         }
                                                     }
-                                                    else
-                                                    {
-                                                        p.Message("You don't own this weapon.");
-                                                    }
                                                 }
                                                 else
                                                 {
-                                                    p.Message("You can't hurt people in a safe zone.");
+                                                    p.Message("You do not own this weapon.");
+                                                    return;
                                                 }
+                                            }
+                                            else
+                                            {
+                                                p.Message("You cannot hurt people in a safe zone.");
+                                                return;
                                             }
                                             players[curpid, 2] = DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
                                         }
@@ -1009,9 +1066,12 @@ namespace MCGalaxy
                 }
             }
 
-            // Drop blocks hotkeys (del and backspace)
-            p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 211, 0, true));
-            p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
+            if (p.Supports(CpeExt.TextHotkey))
+            {
+                // Drop blocks hotkeys (del and backspace)
+                p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 211, 0, true));
+                p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
+            }
 
             Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
             if (maplist.Contains(level.name))
@@ -1371,7 +1431,7 @@ namespace MCGalaxy
                 if (!p.Extras.GetBoolean("POTION_IS_JUMP")) continue;
                 if (p.Extras.GetBoolean("POTION_IS_FAST")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
                 else p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4"));
-                p.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight            	
+                if (p.Supports(CpeExt.HackControl)) p.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight            	
                 // Timer
 
                 string time = p.Extras.GetString("POTION_JUMP_TIMER");
@@ -1390,54 +1450,18 @@ namespace MCGalaxy
         #endregion
     }
 
+    #region Commands
+
     public sealed class CmdPvP : Command2
     {
         string path = "./plugins/VenksSurvival/";
 
-        public override string name
-        {
-            get
-            {
-                return "PvP";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Admin;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override CommandPerm[] ExtraPerms
-        {
-            get
-            {
-                return new[] {
-                    new CommandPerm(LevelPermission.Admin, "can manage PvP")
-                };
-            }
-        }
+        public override string name { get { return "PvP"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage PvP") }; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -1570,50 +1594,12 @@ namespace MCGalaxy
 
     public sealed class CmdSafeZone : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "SafeZone";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Admin;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override CommandPerm[] ExtraPerms
-        {
-            get
-            {
-                return new[] {
-                    new CommandPerm(LevelPermission.Admin, "can manage safe zones")
-                };
-            }
-        }
+        public override string name { get { return "SafeZone"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage safe zones") }; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -1661,50 +1647,12 @@ namespace MCGalaxy
 
     public sealed class CmdWeapon : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "Weapon";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Admin;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override CommandPerm[] ExtraPerms
-        {
-            get
-            {
-                return new[] {
-                    new CommandPerm(LevelPermission.Admin, "can manage weapons")
-                };
-            }
-        }
+        public override string name { get { return "Weapon"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage weapons") }; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -1775,46 +1723,53 @@ namespace MCGalaxy
 
         void HandleGive(Player p, string[] args)
         {
-            if (args.Length == 1)
+            if (args[1] != PvP.SecretCode) return;
+
+            if (args.Length == 2)
+            {
+                p.Message("You need to specify the ID of the weapon.");
+                return;
+            }
+
+            if (args.Length == 3)
             {
                 p.Message("You need to specify a username to give the weapon to.");
                 return;
             }
-            if (args.Length == 2)
-            {
-                p.Message("You need to specify the world to allow them to use the weapon on.");
-                return;
-            }
-            if (args.Length == 3)
-            {
-                p.Message("You need to specify the name of the weapon.");
-                return;
-            }
 
-            string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
-            FileInfo filedir = new FileInfo(filepath);
-            filedir.Directory.Create();
-            using (StreamWriter file = new StreamWriter(filepath, true))
-            {
-                file.WriteLine(args[3]);
-            }
+            Player who = PlayerInfo.FindExact(args[3]);
+            if (who == null) return;
+
+            who.Extras["PVP_UNLOCKED_" + args[2]] = true;
+
+            who.Message("%eYou unlocked a weapon: %b" + args[2]);
+
+            p.Message("Weapon given.");
         }
 
         void HandleTake(Player p, string[] args)
         {
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player pl in online)
-            {
-                if (pl.truename == args[1])
-                {
-                    string filepath = PvP.path + "weapons/" + args[2] + "/" + args[1] + ".txt";
+            if (args[1] != PvP.SecretCode) return;
 
-                    if (File.Exists(filepath))
-                    {
-                        File.WriteAllText(filepath, string.Empty);
-                    }
-                }
+            if (args.Length == 2)
+            {
+                p.Message("You need to specify the ID of the weapon.");
+                return;
             }
+
+            if (args.Length == 3)
+            {
+                p.Message("You need to specify a username to take the weapon from.");
+                return;
+            }
+
+            Player who = PlayerInfo.FindExact(args[3]);
+            if (who == null) return;
+
+            who.Extras["PVP_UNLOCKED_" + args[2]] = false;
+
+            p.Message("Weapon taken.");
+            who.Message("%eYour lost your weapon: %b" + args[2]);
         }
 
         public override void Help(Player p)
@@ -1828,50 +1783,12 @@ namespace MCGalaxy
 
     public sealed class CmdTool : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "Tool";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Admin;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override CommandPerm[] ExtraPerms
-        {
-            get
-            {
-                return new[] {
-                    new CommandPerm(LevelPermission.Admin, "can manage tools")
-                };
-            }
-        }
+        public override string name { get { return "Tool"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage tools") }; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -1999,50 +1916,12 @@ namespace MCGalaxy
 
     public sealed class CmdBlock : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "Block";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Games;
-            }
-        }
-        public override bool museumUsable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.Admin;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override CommandPerm[] ExtraPerms
-        {
-            get
-            {
-                return new[] {
-                    new CommandPerm(LevelPermission.Admin, "can manage blocks")
-                };
-            }
-        }
+        public override string name { get { return "Block"; } }
+        public override string type { get { return CommandTypes.Games; } }
+        public override bool museumUsable { get { return false; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
+        public override bool SuperUseable { get { return false; } }
+        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage blocks") }; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -2112,27 +1991,9 @@ namespace MCGalaxy
 
     public sealed class CmdPotion : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "Potion";
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return "fun";
-            }
-        }
+        public override string name { get { return "Potion"; } }
+        public override bool SuperUseable { get { return false; } }
+        public override string type { get { return "fun"; } }
 
         public override void Use(Player p, string message, CommandData data)
         {
@@ -2321,41 +2182,11 @@ namespace MCGalaxy
 
     public sealed class CmdDropBlock : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "DropBlock";
-            }
-        }
-        public override string shortcut
-        {
-            get
-            {
-                return "db";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Building;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.AdvBuilder;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public override string name { get { return "DropBlock"; } }
+        public override string shortcut { get { return "db"; } }
+        public override string type { get { return CommandTypes.Building; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.AdvBuilder; } }
+        public override bool SuperUseable { get { return false; } }
 
         private readonly Random _random = new Random();
 
@@ -2413,10 +2244,10 @@ namespace MCGalaxy
             }
 
             model = model.ToLower();
-            model = model.Replace(':', '|'); // since users assume : is for scale instead of |.
+            model = model.Replace(':', '|'); // Since users assume : is for scale instead of |.
 
             float max = ModelInfo.MaxScale(e, model);
-            // restrict player model scale, but bots can have unlimited model scale
+            // Restrict player model scale, but bots can have unlimited model scale
             if (ModelInfo.GetRawScale(model) > max)
             {
                 dst.Message("%WScale must be {0} or less for {1} model",
@@ -2464,41 +2295,11 @@ namespace MCGalaxy
 
     public sealed class CmdPickupBlock : Command2
     {
-        public override string name
-        {
-            get
-            {
-                return "PickupBlock";
-            }
-        }
-        public override string shortcut
-        {
-            get
-            {
-                return "pickup";
-            }
-        }
-        public override string type
-        {
-            get
-            {
-                return CommandTypes.Building;
-            }
-        }
-        public override LevelPermission defaultRank
-        {
-            get
-            {
-                return LevelPermission.AdvBuilder;
-            }
-        }
-        public override bool SuperUseable
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public override string name { get { return "PickupBlock"; } }
+        public override string shortcut { get { return "pickup"; } }
+        public override string type { get { return CommandTypes.Building; } }
+        public override LevelPermission defaultRank { get { return LevelPermission.AdvBuilder; } }
+        public override bool SuperUseable { get { return false; } }
 
         public override void Use(Player p, string message, CommandData data)
         { // /PickupBlock [bot name] [block]
@@ -2517,4 +2318,6 @@ namespace MCGalaxy
 
         public override void Help(Player p) { }
     }
+
+    #endregion
 }
