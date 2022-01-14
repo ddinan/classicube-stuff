@@ -650,7 +650,6 @@ namespace MCGalaxy
                     // Offset particle in the center of the block
 
                     px += 0.5f;
-                    py += 0.31f;
                     pz += 0.5f;
 
                     if (action == MouseAction.Pressed)
@@ -670,6 +669,7 @@ namespace MCGalaxy
 
                             return;
                         }
+
                         int heldFor = p.Extras.GetInt("HOLDING_TIME");
 
                         // The client's click speed is ~4 times/second
@@ -742,7 +742,7 @@ namespace MCGalaxy
                                 {
                                     // Spawn break particle
                                     float life = 1f;
-                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 16, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
+                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
                                     p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
                                     p.Extras["MINING"] = true;
                                 }
@@ -765,7 +765,7 @@ namespace MCGalaxy
                                 if (useGoodlyEffects)
                                 {
                                     // Despawn break particle
-                                    p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                                    p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
                                 }
                                 return;
                             }
@@ -776,7 +776,7 @@ namespace MCGalaxy
                                 if (!p.Extras.GetBoolean("MINING"))
                                 {
                                     // Spawn break particle
-                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 16, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
+                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
                                     p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
                                     p.Extras["MINING"] = true;
                                 }
