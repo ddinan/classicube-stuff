@@ -167,7 +167,7 @@ namespace MCGalaxy.Games {
 			p.Game.Referee = true; // This allows them to fly and noclip when they die
 			p.Send(Packet.HackControl(true, true, true, true, true, -1)); // ^
 			Entities.GlobalDespawn(p, true); // Remove from tab list
-			Server.hidden.AddUnique(p.name); // Hides the player
+			Server.hidden.Add(p.name); // Hides the player
 		}
 		
 		// We use this event for resetting everything and preparing for the next map
@@ -310,7 +310,7 @@ namespace MCGalaxy.Games {
 			
 			UpdateAllStatus1();
 			if (winner != null) {
-				winner.SendMessage("Congratulations, you won this round of NOG!");
+				winner.Message("Congratulations, you won this round of NOG!");
 				// TODO: Money
 			}
 			
