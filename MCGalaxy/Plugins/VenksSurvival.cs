@@ -53,6 +53,7 @@ using MCGalaxy;
 using MCGalaxy.Blocks;
 using MCGalaxy.Bots;
 using MCGalaxy.Commands;
+using MCGalaxy.Config;
 using MCGalaxy.Events;
 using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Drawing.Ops;
@@ -72,25 +73,60 @@ namespace MCGalaxy
         public override string MCGalaxy_Version { get { return "1.9.2.8"; } }
         public override string creator { get { return "Venk and Sirvoid"; } }
 
-        // Settings
-        public static string MaxHp = "20"; // Max players HP (10*2)
-        public static bool gamemodeOnly = false; // Enable (true) or disable (false) manually setting permissions
-        // For instance in Murder Mystery, I don't want regulars to be able to PvP
-        // but I do want killers/detectives to be able to
-        bool survivalDeath = true; // Enable (true) or disable (false) death by drowning and falling
-        bool regeneration = true; // Enable (true) or disable (false) automatic health regeneration
-        bool drowning = true; // Enable (true) or disable (false) drowning
-        bool blockMining = true; // Enable (true) or disable (false) mining blocks (only works with deletable off!)
-        bool economy = false; // Enable (true) or disable (false) rewards when killing someone
-        // NOTE: Mobs are extremely glitchy
-        bool mobsEnabled = false; // Enable (true) or disable (false) mobs EXPERIMENTAL: USE WITH CAUTION
-        int moneyStolen = 0; // If economy = true, money stolen when you kill someone
-        public static string path = "./plugins/VenksSurvival/"; // Plugin path
+        public class Config
+        {
+            [ConfigBool("gamemode-only", "Survival", true)]
+            public static bool GamemodeOnly = true;
 
-        // Extra plugin integrations
-        public static bool useGoodlyEffects = true; // Enable (true) or disable (false) GoodlyEffects integration
+            [ConfigBool("survival-death", "Survival", true)]
+            public static bool SurvivalDeath = true;
 
-        public static string SecretCode = "unusedCodeHere"; // Potions secret code
+            [ConfigBool("regeneration", "Survival", true)]
+            public static bool Regeneration = true;
+
+            [ConfigBool("drowning", "Survival", true)]
+            public static bool Drowning = true;
+
+            [ConfigBool("mining", "Survival", true)]
+            public static bool Mining = true;
+
+            [ConfigBool("economy", "Survival", true)]
+            public static bool Economy = true;
+
+            [ConfigInt("bounty", "Survival", 1)]
+            public static int Bounty = 1;
+
+            [ConfigBool("mobs", "Survival", false)]
+            public static bool Mobs = false;
+
+            [ConfigBool("use-goodly-effects", "Extra", false)]
+            public static bool UseGoodlyEffects = false;
+
+            [ConfigString("max-health", "Survival", "20")]
+            public static string MaxHealth = "20";
+
+            [ConfigString("path", "Extra", "./plugins/VenksSurvival/")]
+            public static string Path = "./plugins/VenksSurvival/";
+
+            [ConfigString("secret-code", "Extra", "unused")]
+            public static string SecretCode = "unused";
+
+
+            static ConfigElement[] cfg;
+            public void Load()
+            {
+                if (cfg == null) cfg = ConfigElement.GetAll(typeof(Config));
+                ConfigElement.ParseFile(cfg, "./plugins/VenksSurvival/config.properties", this);
+            }
+
+            public void Save()
+            {
+                if (cfg == null) cfg = ConfigElement.GetAll(typeof(Config));
+                ConfigElement.SerialiseSimple(cfg, "./plugins/VenksSurvival/config.properties", this);
+            }
+        }
+
+        public static Config cfg = new Config();
 
         public static int curpid = -1;
         public static List<string> maplist = new List<string>();
@@ -101,6 +137,11 @@ namespace MCGalaxy
 
         public override void Load(bool startup)
         {
+            // Initialize config
+            cfg.Load();
+
+            // Load files
+
             loadMaps();
             loadWeapons();
             loadTools();
@@ -111,8 +152,8 @@ namespace MCGalaxy
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
             OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
-            if (drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
-            if (regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
+            if (Config.Drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
+            if (Config.Regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
             //Server.MainScheduler.QueueRepeat(HandleFall, null, TimeSpan.FromMilliseconds(1)); 
 
             Command.Register(new CmdPvP());
@@ -132,7 +173,7 @@ namespace MCGalaxy
                     if (players[i, 0] == null)
                     {
                         players[i, 0] = p.name;
-                        players[i, 1] = MaxHp;
+                        players[i, 1] = Config.MaxHealth;
                         players[i, 2] = "30000";
                         break;
                     }
@@ -221,9 +262,9 @@ namespace MCGalaxy
 
         void loadMaps()
         {
-            if (File.Exists(path + "maps.txt"))
+            if (File.Exists(Config.Path + "maps.txt"))
             {
-                using (var maplistreader = new StreamReader(path + "maps.txt"))
+                using (var maplistreader = new StreamReader(Config.Path + "maps.txt"))
                 {
                     string line;
                     while ((line = maplistreader.ReadLine()) != null)
@@ -232,7 +273,7 @@ namespace MCGalaxy
                     }
                 }
             }
-            else File.Create(path + "maps.txt").Dispose();
+            else File.Create(Config.Path + "maps.txt").Dispose();
         }
 
         #region Drowning
@@ -241,13 +282,13 @@ namespace MCGalaxy
         {
             p.HandleDeath(Block.Water);
             p.Extras.Remove("DROWNING");
-            players[i, 1] = MaxHp;
+            players[i, 1] = Config.MaxHealth;
             p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
         }
 
         void HandleDrown(SchedulerTask task)
         {
-            if (survivalDeath == false)
+            if (Config.SurvivalDeath == false)
             {
                 return;
             }
@@ -362,7 +403,7 @@ namespace MCGalaxy
                         if (players[i, 0] == p.truename)
                         {
                             int a = int.Parse(players[i, 1]);
-                            if (a.ToString() == MaxHp)
+                            if (a.ToString() == Config.MaxHealth)
                             {
                                 continue;
                             }
@@ -436,7 +477,7 @@ namespace MCGalaxy
 
         void HandleFall(SchedulerTask task)
         {
-            if (survivalDeath == false)
+            if (Config.SurvivalDeath == false)
             {
                 return;
             }
@@ -629,7 +670,7 @@ namespace MCGalaxy
             {
                 if (maplist.Contains(p.level.name))
                 {
-                    if (!blockMining) return;
+                    if (!Config.Mining) return;
 
                     if (!p.level.Config.MOTD.ToLower().Contains("mining=true")) return;
 
@@ -661,7 +702,7 @@ namespace MCGalaxy
                             p.Extras["MINING"] = false;
                             p.Extras["MINING_COORDS"] = 0;
 
-                            if (useGoodlyEffects)
+                            if (Config.UseGoodlyEffects)
                             {
                                 // Despawn break particle
                                 p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
@@ -736,12 +777,11 @@ namespace MCGalaxy
                             }
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
 
-                            if (useGoodlyEffects)
+                            if (Config.UseGoodlyEffects)
                             {
                                 if (!p.Extras.GetBoolean("MINING"))
                                 {
                                     // Spawn break particle
-                                    float life = 1f;
                                     p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
                                     p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
                                     p.Extras["MINING"] = true;
@@ -762,7 +802,7 @@ namespace MCGalaxy
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
 
-                                if (useGoodlyEffects)
+                                if (Config.UseGoodlyEffects)
                                 {
                                     // Despawn break particle
                                     p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
@@ -771,7 +811,7 @@ namespace MCGalaxy
                             }
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
 
-                            if (useGoodlyEffects)
+                            if (Config.UseGoodlyEffects)
                             {
                                 if (!p.Extras.GetBoolean("MINING"))
                                 {
@@ -789,7 +829,7 @@ namespace MCGalaxy
                         p.Extras["MINING"] = false;
                         p.Extras["MINING_COORDS"] = 0;
 
-                        if (useGoodlyEffects)
+                        if (Config.UseGoodlyEffects)
                         {
                             // Despawn break particle
                             p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
@@ -812,9 +852,9 @@ namespace MCGalaxy
 
         public static bool inSafeZone(Player p, string map)
         {
-            if (File.Exists(path + "safezones" + map + ".txt"))
+            if (File.Exists(Config.Path + "safezones" + map + ".txt"))
             {
-                using (var r = new StreamReader(path + "safezones" + map + ".txt"))
+                using (var r = new StreamReader(Config.Path + "safezones" + map + ".txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
@@ -877,7 +917,7 @@ namespace MCGalaxy
                                         {
                                             if (pl.invincible) return;
                                             // Check if they can kill players, as determined by gamemode plugins
-                                            bool canKill = gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+                                            bool canKill = Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
                                             if (!canKill)
                                             {
                                                 p.Message("You cannot kill people.");
@@ -928,18 +968,18 @@ namespace MCGalaxy
                                                         p.Extras.Remove("DROWNING");
                                                         //pl.Game.Referee = true;
 
-                                                        players[i, 1] = MaxHp;
+                                                        players[i, 1] = Config.MaxHealth;
 
                                                         pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
-                                                        if (economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
+                                                        if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                         {
-                                                            if (pl.money > moneyStolen - 1)
+                                                            if (pl.money > Config.Bounty - 1)
                                                             {
-                                                                p.Message("You stole " + moneyStolen + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-                                                                pl.Message(p.ColoredName + " %Sstole " + moneyStolen + " " + Server.Config.Currency + " from you.");
-                                                                p.SetMoney(p.money + moneyStolen);
-                                                                pl.SetMoney(pl.money - moneyStolen);
+                                                                p.Message("You stole " + Config.Bounty + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
+                                                                pl.Message(p.ColoredName + " %Sstole " + Config.Bounty + " " + Server.Config.Currency + " from you.");
+                                                                p.SetMoney(p.money + Config.Bounty);
+                                                                pl.SetMoney(pl.money - Config.Bounty);
 
                                                                 MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
                                                                 if (bounty != null)
@@ -1013,7 +1053,7 @@ namespace MCGalaxy
                     if (button == MouseButton.Left)
                     {
                         // Check if they can kill players, as determined by gamemode plugins
-                        bool canKill = PvP.gamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+                        bool canKill = PvP.Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
                         if (!canKill) return false;
                         if (p.Game.Referee) return false;
                         if (pl.Game.Referee) return false;
@@ -1057,9 +1097,9 @@ namespace MCGalaxy
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
-            if (blockMining)
+            if (Config.Mining)
             {
-                if (gamemodeOnly)
+                if (Config.GamemodeOnly)
                 {
                     List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
                     if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
@@ -1073,7 +1113,8 @@ namespace MCGalaxy
                 p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
             }
 
-            Command.Find("PvP").Use(p, "sethp " + p.truename + " " + MaxHp);
+            Command.Find("PvP").Use(p, "sethp " + p.truename + " " + Config.MaxHealth);
+
             if (maplist.Contains(level.name))
             {
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
@@ -1088,7 +1129,7 @@ namespace MCGalaxy
                     if (players[i, 0] == null)
                     {
                         players[i, 0] = p.name;
-                        players[i, 1] = MaxHp;
+                        players[i, 1] = Config.MaxHealth;
                         players[i, 2] = "30000";
                         return;
                     }
@@ -1198,7 +1239,7 @@ namespace MCGalaxy
 
         public static bool hasWeapon(string world, Player p, string weapon)
         {
-            string filepath = path + "weapons/" + world + "/" + p.truename + ".txt";
+            string filepath = Config.Path + "weapons/" + world + "/" + p.truename + ".txt";
             if (File.Exists(filepath))
             {
                 using (var r = new StreamReader(filepath))
@@ -1227,9 +1268,9 @@ namespace MCGalaxy
 
         void loadWeapons()
         {
-            if (File.Exists(path + "weapons.txt"))
+            if (File.Exists(Config.Path + "weapons.txt"))
             {
-                using (var r = new StreamReader(path + "weapons.txt"))
+                using (var r = new StreamReader(Config.Path + "weapons.txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
@@ -1248,7 +1289,7 @@ namespace MCGalaxy
                     }
                 }
             }
-            else File.Create(path + "weapons.txt").Dispose();
+            else File.Create(Config.Path + "weapons.txt").Dispose();
         }
 
         #endregion
@@ -1257,7 +1298,7 @@ namespace MCGalaxy
 
         bool hasTool(string world, Player p, string tool)
         {
-            string filepath = path + "tools/" + world + "/" + p.truename + ".txt";
+            string filepath = Config.Path + "tools/" + world + "/" + p.truename + ".txt";
             if (File.Exists(filepath))
             {
                 using (var r = new StreamReader(filepath))
@@ -1286,9 +1327,9 @@ namespace MCGalaxy
 
         void loadTools()
         {
-            if (File.Exists(path + "tools.txt"))
+            if (File.Exists(Config.Path + "tools.txt"))
             {
-                using (var r = new StreamReader(path + "tools.txt"))
+                using (var r = new StreamReader(Config.Path + "tools.txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
@@ -1308,7 +1349,7 @@ namespace MCGalaxy
                     }
                 }
             }
-            else File.Create(path + "tools.txt").Dispose();
+            else File.Create(Config.Path + "tools.txt").Dispose();
         }
 
         #endregion
@@ -1317,7 +1358,7 @@ namespace MCGalaxy
 
         bool hasBlock(string world, Player p, string block)
         {
-            string filepath = path + "blocks/" + world + "/" + p.truename + ".txt";
+            string filepath = Config.Path + "blocks/" + world + "/" + p.truename + ".txt";
             if (File.Exists(filepath))
             {
                 using (var r = new StreamReader(filepath))
@@ -1346,9 +1387,9 @@ namespace MCGalaxy
 
         void loadBlocks()
         {
-            if (File.Exists(path + "blocks.txt"))
+            if (File.Exists(Config.Path + "blocks.txt"))
             {
-                using (var r = new StreamReader(path + "blocks.txt"))
+                using (var r = new StreamReader(Config.Path + "blocks.txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
@@ -1367,7 +1408,7 @@ namespace MCGalaxy
                     }
                 }
             }
-            else File.Create(path + "blocks.txt").Dispose();
+            else File.Create(Config.Path + "blocks.txt").Dispose();
         }
 
         #endregion
@@ -1454,8 +1495,6 @@ namespace MCGalaxy
 
     public sealed class CmdPvP : Command2
     {
-        string path = "./plugins/VenksSurvival/";
-
         public override string name { get { return "PvP"; } }
         public override string type { get { return CommandTypes.Games; } }
         public override bool museumUsable { get { return false; } }
@@ -1501,7 +1540,7 @@ namespace MCGalaxy
 
             // Add the map to the map list
             using (StreamWriter maplistwriter =
-                new StreamWriter(path + "maps.txt"))
+                new StreamWriter(PvP.Config.Path + "maps.txt"))
             {
                 foreach (String s in PvP.maplist)
                 {
@@ -1519,7 +1558,7 @@ namespace MCGalaxy
                         if (PvP.players[i, 0] == null)
                         {
                             PvP.players[i, 0] = pl.name;
-                            PvP.players[i, 1] = PvP.MaxHp;
+                            PvP.players[i, 1] = PvP.Config.MaxHealth;
                             PvP.players[i, 2] = "30000";
                             break;
                         }
@@ -1626,10 +1665,10 @@ namespace MCGalaxy
 
         bool addSafeZone(Player p, Vec3S32[] marks, object state, BlockID block)
         {
-            FileInfo filedir = new FileInfo(PvP.path + "safezones" + p.level.name + ".txt");
+            FileInfo filedir = new FileInfo(PvP.Config.Path + "safezones" + p.level.name + ".txt");
             filedir.Directory.Create();
 
-            using (StreamWriter file = new StreamWriter(PvP.path + "safezones" + p.level.name + ".txt", true))
+            using (StreamWriter file = new StreamWriter(PvP.Config.Path + "safezones" + p.level.name + ".txt", true))
             {
                 file.WriteLine(marks.GetValue(0) + ";" + marks.GetValue(1));
             }
@@ -1712,10 +1751,10 @@ namespace MCGalaxy
 
         void createWeapon(string id, string damage, string durability)
         {
-            FileInfo filedir = new FileInfo(PvP.path + "weapons.txt");
+            FileInfo filedir = new FileInfo(PvP.Config.Path + "weapons.txt");
             filedir.Directory.Create();
 
-            using (StreamWriter file = new StreamWriter(PvP.path + "weapons.txt", true))
+            using (StreamWriter file = new StreamWriter(PvP.Config.Path + "weapons.txt", true))
             {
                 file.WriteLine(id + ";" + damage + ";" + durability);
             }
@@ -1723,7 +1762,7 @@ namespace MCGalaxy
 
         void HandleGive(Player p, string[] args)
         {
-            if (args[1] != PvP.SecretCode) return;
+            if (args[1] != PvP.Config.SecretCode) return;
 
             if (args.Length == 2)
             {
@@ -1749,7 +1788,7 @@ namespace MCGalaxy
 
         void HandleTake(Player p, string[] args)
         {
-            if (args[1] != PvP.SecretCode) return;
+            if (args[1] != PvP.Config.SecretCode) return;
 
             if (args.Length == 2)
             {
@@ -1852,10 +1891,10 @@ namespace MCGalaxy
 
         void createTool(string id, string damage, string durability, string type)
         {
-            FileInfo filedir = new FileInfo(PvP.path + "tools.txt");
+            FileInfo filedir = new FileInfo(PvP.Config.Path + "tools.txt");
             filedir.Directory.Create();
 
-            using (StreamWriter file = new StreamWriter(PvP.path + "tools.txt", true))
+            using (StreamWriter file = new StreamWriter(PvP.Config.Path + "tools.txt", true))
             {
                 file.WriteLine(id + ";" + damage + ";" + durability + ";" + type);
             }
@@ -1879,7 +1918,7 @@ namespace MCGalaxy
                 return;
             }
 
-            string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
+            string filepath = PvP.Config.Path + "tools/" + args[2] + "/" + args[1] + ".txt";
             FileInfo filedir = new FileInfo(filepath);
             filedir.Directory.Create();
             using (StreamWriter file = new StreamWriter(filepath, true))
@@ -1895,7 +1934,7 @@ namespace MCGalaxy
             {
                 if (pl.truename == args[1])
                 {
-                    string filepath = PvP.path + "tools/" + args[2] + "/" + args[1] + ".txt";
+                    string filepath = PvP.Config.Path + "tools/" + args[2] + "/" + args[1] + ".txt";
 
                     if (File.Exists(filepath))
                     {
@@ -1973,10 +2012,10 @@ namespace MCGalaxy
 
         void createBlock(string id, string tool, string durability)
         {
-            FileInfo filedir = new FileInfo(PvP.path + "blocks.txt");
+            FileInfo filedir = new FileInfo(PvP.Config.Path + "blocks.txt");
             filedir.Directory.Create();
 
-            using (StreamWriter file = new StreamWriter(PvP.path + "blocks.txt", true))
+            using (StreamWriter file = new StreamWriter(PvP.Config.Path + "blocks.txt", true))
             {
                 file.WriteLine(id + ";" + tool + ";" + durability);
             }
@@ -2014,7 +2053,7 @@ namespace MCGalaxy
             else
             {
                 List<string[]> pRows = Database.GetRows("Potions", "*", "WHERE Name=@0", p.truename);
-                if (args[0] == PvP.SecretCode && args.Length >= 3)
+                if (args[0] == PvP.Config.SecretCode && args.Length >= 3)
                 { // Used for getting potions
                     string item = args[1].ToLower();
                     int quantity = Int32.Parse(args[2]);
@@ -2100,7 +2139,7 @@ namespace MCGalaxy
 
                     // Use potion
                     Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, h - 1);
-                    Command.Find("PvP").Use(p, "sethp " + PvP.SecretCode + " " + p.truename + " 20");
+                    Command.Find("PvP").Use(p, "sethp " + PvP.Config.SecretCode + " " + p.truename + " 20");
                     p.Message("Your health has been replenished.");
                     p.Message("You have " + (h - 1) + " health potions remaining.");
                 }
