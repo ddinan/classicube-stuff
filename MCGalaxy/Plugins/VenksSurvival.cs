@@ -70,7 +70,7 @@ namespace MCGalaxy
     public class PvP : Plugin
     {
         public override string name { get { return "&aVenk's Survival%S"; } } // To unload /punload Survival
-        public override string MCGalaxy_Version { get { return "1.9.2.8"; } }
+        public override string MCGalaxy_Version { get { return "1.9.3.8"; } }
         public override string creator { get { return "Venk and Sirvoid"; } }
 
         public class Config
@@ -126,6 +126,34 @@ namespace MCGalaxy
             }
         }
 
+        public static void MakeConfig()
+        {
+            using (StreamWriter w = new StreamWriter("./plugins/VenksSurvival/config.properties"))
+            {
+                w.WriteLine("# Edit the settings below to modify how the plugin operates.");
+                w.WriteLine("# Whether or not this plugin should be controlled by other gamemode plugins. E.g, SkyWars.");
+                w.WriteLine("gamemode-only = false");
+                w.WriteLine("# Whether or not the player can die from natural causes. E.g, drowning.");
+                w.WriteLine("survival-death = true");
+                w.WriteLine("# Whether or not players can drown.");
+                w.WriteLine("drowning = true");
+                w.WriteLine("# Whether or not players regenerate health.");
+                w.WriteLine("regeneration = true");
+                w.WriteLine("# Whether or not mining is enabled.");
+                w.WriteLine("mining = true");
+                w.WriteLine("# Whether or not players gain money for killing other players.");
+                w.WriteLine("economy = true");
+                w.WriteLine("# If economy is enabled, the amount of money players get for killing other players.");
+                w.WriteLine("bounty = 1");
+                //w.WriteLine("mobs = false # Whether or not mobs are toggled.");
+                w.WriteLine("# The amount of health players have.");
+                w.WriteLine("max-health = 20");
+                w.WriteLine("# Whether or not to use Goodly's effects plugin for particles. Note: Needs GoodlyEffects to work.");
+                w.WriteLine("use-goodly-effects = false");
+                w.WriteLine();
+            }
+        }
+
         public static Config cfg = new Config();
 
         public static int curpid = -1;
@@ -137,6 +165,8 @@ namespace MCGalaxy
 
         public override void Load(bool startup)
         {
+            if (!File.Exists("./plugins/VenksSurvival/config.properties")) MakeConfig();
+
             // Initialize config
             cfg.Load();
 
