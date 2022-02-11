@@ -194,6 +194,7 @@ namespace MCGalaxy
             Command.Register(new CmdPotion());
             Command.Register(new CmdDropBlock());
             Command.Register(new CmdPickupBlock());
+            Command.Register(new CmdInventory());
 
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
@@ -229,6 +230,7 @@ namespace MCGalaxy
             Command.Unregister(Command.Find("Potion"));
             Command.Unregister(Command.Find("DropBlock"));
             Command.Unregister(Command.Find("PickupBlock"));
+            Command.Unregister(Command.Find("Inventory"));
         }
 
         ColumnDesc[] createPotions = new ColumnDesc[] {
@@ -612,6 +614,34 @@ namespace MCGalaxy
             return "b" + id;
         }
 
+        void UpdateBlockList(Player p, int column)
+        {
+            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+            if (pRows.Count == 0) return;
+            else
+            {
+                if (pRows[0][column].ToString().StartsWith("0"))
+                {
+                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.hasExtBlocks));
+                }
+
+                else
+                {
+                    // Need to trim raw code to get the ID of the block. The example below is for the ID 75:
+                    // ID of block = 75, amount of block = 22
+                    // b75(22) -> 75
+                    string raw = pRows[0][column].ToString();
+
+                    int from = raw.IndexOf("b") + "b".Length;
+                    int to = raw.LastIndexOf("(");
+
+                    string id = raw.Substring(from, to - from);
+                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)column, p.hasExtBlocks));
+                }
+            }
+        }
+
         void SaveBlock(Player p, BlockID block)
         {
             string name = Block.GetName(p, block);
@@ -626,6 +656,8 @@ namespace MCGalaxy
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
                 "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(1)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
                 p.Message("%SNew count: %b1");
+
+                UpdateBlockList(p, 1);
                 return;
             }
             else
@@ -638,11 +670,13 @@ namespace MCGalaxy
                     return;
                 }
 
-                int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + 1;
+                int newCount = pRows[0][column].ToString().StartsWith("0") ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + 1;
 
                 p.Message("%SNew count: %b" + newCount);
 
                 Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+
+                UpdateBlockList(p, column);
                 return;
             }
         }
@@ -684,12 +718,20 @@ namespace MCGalaxy
                         return;
                     }
 
-                    int newCount = pRows[0][column].ToString() == "0" ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) - 1;
+                    int newCount = pRows[0][column].ToString().StartsWith("0") ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) - 1;
 
                     p.Message("%SNew count: %b" + newCount);
 
-                    if (newCount == 0) Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
-                    else Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+                    if (newCount == 0)
+                    {
+                        Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
+                        p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.hasExtBlocks));
+                    }
+                    else
+                    {
+                        UpdateBlockList(p, column);
+                        Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+                    }
                 }
             }
         }
@@ -1134,6 +1176,54 @@ namespace MCGalaxy
                     List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
                     if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
                 }
+
+                if (p.level.Config.MOTD.ToLower().Contains("mining=true"))
+                {
+                    List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+                    if (rows.Count == 0)
+                    {
+                        for (int i = 0; i < 767; i++)
+                        {
+                            p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                        }
+                    }
+
+                    else
+                    {
+                        for (int i = 1; i <= 767; i++)
+                        {
+                            if (i <= 36)
+                            {
+                                if (rows[0][i].ToString().StartsWith("0"))
+                                {
+                                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                                    continue;
+                                }
+
+                                else
+                                {
+                                    // Need to trim raw code to get the ID of the block. The example below is for the ID 75:
+                                    // ID of block = 75, amount of block = 22
+                                    // b75(22) -> 75
+                                    string raw = rows[0][i].ToString();
+
+                                    int from = raw.IndexOf("b") + "b".Length;
+                                    int to = raw.LastIndexOf("(");
+
+                                    string id = raw.Substring(from, to - from);
+                                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)i, p.hasExtBlocks));
+                                    continue;
+                                }
+                            }
+
+                            else
+                            {
+                                p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                            }
+                        }
+                    }
+                }
             }
 
             if (p.Supports(CpeExt.TextHotkey))
@@ -1522,6 +1612,44 @@ namespace MCGalaxy
     }
 
     #region Commands
+
+    public sealed class CmdInventory : Command2
+    {
+        public override string name { get { return "Inventory"; } }
+        public override string shortcut { get { return "backpack"; } }
+        public override string type { get { return "Other"; } }
+
+        public override void Use(Player p, string message, CommandData data)
+        {
+
+            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+            if (pRows.Count == 0)
+            {
+                p.Message("Your inventory is empty.");
+                return;
+            }
+            else
+            {
+                List<string> slots = new List<string>();
+
+                for (int i = 1; i < 37; i++)
+                {
+                    if (pRows[0][i].ToString().StartsWith("0")) continue; // Don't bother with air
+                    slots.Add("%2[" + i + "%2] " + pRows[0][i].ToString());
+                }
+
+                string inventory = String.Join(" %8| ", slots.ToArray());
+
+                p.Message(inventory);
+            }
+        }
+
+        public override void Help(Player p)
+        {
+
+        }
+    }
 
     public sealed class CmdPvP : Command2
     {
@@ -2371,7 +2499,8 @@ namespace MCGalaxy
         public override bool SuperUseable { get { return false; } }
 
         public override void Use(Player p, string message, CommandData data)
-        { // /PickupBlock [bot name] [block]
+        {
+            // /PickupBlock [bot name] [block]
             if (!PvP.maplist.Contains(p.level.name)) return;
             if (message.Length == 0) return;
             string[] args = message.SplitSpaces(2);
