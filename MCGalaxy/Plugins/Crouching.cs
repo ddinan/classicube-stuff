@@ -54,6 +54,7 @@ namespace MCGalaxy
             Player[] players = PlayerInfo.Online.Items;
             foreach (Player pl in players)
             {
+                if (!p.Supports(CpeExt.TextHotkey)) continue;
                 pl.Send(Packet.TextHotKey("Crouch", "/Crouch◙", 54, 0, true));
             }
 
