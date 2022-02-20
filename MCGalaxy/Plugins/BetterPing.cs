@@ -20,6 +20,8 @@ namespace MCGalaxy {
 			try { p.Socket.LowLatency = true; } catch { }
 		}
 		
-		public override void Unload(bool shutdown) {}
+		public override void Unload(bool shutdown) {
+			OnPlayerConnectEvent.Unregister(DisableNagle);
+		}
 	}
 }
