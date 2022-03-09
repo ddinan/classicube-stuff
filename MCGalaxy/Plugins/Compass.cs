@@ -8,8 +8,8 @@ namespace MCGalaxy
 {
     public class Compass : Plugin
     {
-        public override string creator { get { return "VenkSociety"; } }
-        public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
+        public override string creator { get { return "Venk"; } }
+        public override string MCGalaxy_Version { get { return "1.9.3.8"; } }
         public override string name { get { return "Compass"; } }
 
         public static SchedulerTask task;
@@ -24,53 +24,41 @@ namespace MCGalaxy
             Player[] players = PlayerInfo.Online.Items;
             foreach (Player p in players)
             {
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 0 && Orientation.PackedToDegrees(p.Rot.RotY) < 45)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (!p.Supports(CpeExt.MessageTypes)) continue;
+
+                int yaw = Orientation.PackedToDegrees(p.Rot.RotY);
+
+                // If value is the same, don't bother sending status packets to the client
+                if (p.Extras.GetInt("COMPASS_VALUE") == yaw) continue;
+
+                // Store yaw in extras values so we can retrieve it above
+                p.Extras["COMPASS_VALUE"] = yaw;
+
+                p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+
+                if (yaw >= 337 || yaw < 22)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bNorth");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 45 && Orientation.PackedToDegrees(p.Rot.RotY) < 90)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 22 && yaw < 67)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bNortheast");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 90 && Orientation.PackedToDegrees(p.Rot.RotY) < 135)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 67 && yaw < 112)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bEast");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 135 && Orientation.PackedToDegrees(p.Rot.RotY) < 180)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 112 && yaw < 157)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bSoutheast");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 180 && Orientation.PackedToDegrees(p.Rot.RotY) < 225)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 157 && yaw < 202)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bSouth");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 225 && Orientation.PackedToDegrees(p.Rot.RotY) < 270)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 202 && yaw < 247)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bSouthwest");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 270 && Orientation.PackedToDegrees(p.Rot.RotY) < 315)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 247 && yaw < 292)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bWest");
-                }
 
-                if (Orientation.PackedToDegrees(p.Rot.RotY) >= 315 && Orientation.PackedToDegrees(p.Rot.RotY) < 361)
-                {
-                    p.SendCpeMessage(CpeMessageType.Status1, "%SFacing:");
+                if (yaw >= 292 && yaw < 337)
                     p.SendCpeMessage(CpeMessageType.Status2, "%bNorthwest");
-                }
             }
         }
 
