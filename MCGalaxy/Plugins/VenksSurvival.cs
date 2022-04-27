@@ -692,12 +692,12 @@ namespace MCGalaxy
         {
             string name = Block.GetName(p, block);
 
-            if (name.ToLower().Contains("air") || name.ToLower().Contains("water") || name.ToLower().Contains("lava")) return;
+            if (name.ToLower().Contains("air") || name.ToLower().Contains("unknown") || name.ToLower().Contains("water") || name.ToLower().Contains("lava")) return;
 
-            if (name.StartsWith("Chest-"))
+            /*if (name.StartsWith("Chest-"))
             {
                 RemoveChest(p, x, y, z);
-            }
+            }*/
 
             List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
 
