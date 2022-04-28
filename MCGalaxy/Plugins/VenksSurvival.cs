@@ -904,25 +904,55 @@ namespace MCGalaxy
                 BlockID b = p.GetHeldBlock();
                 string held = Block.GetName(p, b);
 
-                if (held.ToLower() == "goldenapple")
+                if (action == MouseAction.Pressed)
                 {
-                    if (p.Extras.GetInt("GOLDEN_APPLES") == 0)
+                    if (held.ToLower() == "goldenapple")
                     {
-                        p.Message("You have no golden apples remaining.");
-                        return;
+                        if (p.Extras.GetInt("GOLDEN_APPLES") == 0)
+                        {
+                            p.Message("%7You have no golden apples remaining.");
+                            return;
+                        }
+
+                        else
+                        {
+                            for (int i = 0; i < 100; i++)
+                            {
+                                if (players[i, 0] == p.truename)
+                                {
+                                    int a = int.Parse(players[i, 1]);
+                                    if (a <= int.Parse(Config.MaxHealth) - 4) players[i, 1] = (a + 4) + ""; // Give 4 health points
+                                    else players[i, 1] = Config.MaxHealth; // Set to max health if over (max - 4)
+
+                                    SetHpIndicator(i, p);
+
+                                    int hunger = p.Extras.GetInt("HUNGER");
+                                    if (hunger < 800) p.Extras["HUNGER"] = hunger + 200; // Give back 4 food points
+                                    else p.Extras["HUNGER"] = 1000; // Set to max if over 800
+
+                                    p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
+                                    return;
+                                }
+                            }
+                        }
                     }
 
-                    else
+                    if (held.ToLower() == "food")
                     {
-                        for (int i = 0; i < 100; i++)
+                        if (p.Extras.GetInt("FOOD") == 0)
                         {
-                            if (players[i, 0] == p.truename)
-                            {
-                                int a = int.Parse(players[i, 1]);
-                                players[i, 1] = (a + 4) + "";
-                                p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
-                                return;
-                            }
+                            p.Message("%7You have no food remaining.");
+                            return;
+                        }
+
+                        else
+                        {
+                            int hunger = p.Extras.GetInt("HUNGER");
+                            if (hunger < 700) p.Extras["HUNGER"] = hunger + 300; // Give back 6 food points
+                            else p.Extras["HUNGER"] = 1000; // Set to max if over 700
+
+                            p.Extras["FOOD"] = p.Extras.GetInt("FOOD") - 1; // Subtract one food
+                            return;
                         }
                     }
                 }
