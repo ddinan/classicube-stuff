@@ -216,7 +216,7 @@ namespace MCGalaxy
                 {
                     if (players[i, 0] == null)
                     {
-                        players[i, 0] = p.name;
+                        players[i, 0] = p.truename;
                         players[i, 1] = Config.MaxHealth;
                         players[i, 2] = "30000";
                         p.Extras["HUNGER"] = 1000;
@@ -901,6 +901,32 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
+                BlockID b = p.GetHeldBlock();
+                string held = Block.GetName(p, b);
+
+                if (held.ToLower() == "goldenapple")
+                {
+                    if (p.Extras.GetInt("GOLDEN_APPLES") == 0)
+                    {
+                        p.Message("You have no golden apples remaining.");
+                        return;
+                    }
+
+                    else
+                    {
+                        for (int i = 0; i < 100; i++)
+                        {
+                            if (players[i, 0] == p.truename)
+                            {
+                                int a = int.Parse(players[i, 1]);
+                                players[i, 1] = (a + 4) + "";
+                                p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 BlockID clickedBlock = p.level.GetBlock(x, y, z);
                 string name = Block.GetName(p, clickedBlock);
 
@@ -954,7 +980,6 @@ namespace MCGalaxy
 
                         string[] blockstats = getBlockStats((byte)clickedBlock + "").Split(' ');
                         //p.Message(blockstats[2]);
-                        BlockID b = p.GetHeldBlock();
                         string[] toolstats = getToolStats((byte)b + "").Split(' ');
 
                         //p.Message("block type: " + blockstats[1] + ", hard: " + blockstats[2] + ", id: " +  clickedBlock);
@@ -1189,7 +1214,7 @@ namespace MCGalaxy
                         curpid = -1;
                         for (int yi = 0; yi < 100; yi++)
                         {
-                            if (players[yi, 0] == p.name)
+                            if (players[yi, 0] == p.truename)
                             {
                                 curpid = yi;
                             }
@@ -1334,7 +1359,7 @@ namespace MCGalaxy
                 curpid = -1;
                 for (int yi = 0; yi < 100; yi++)
                 {
-                    if (players[yi, 0] == p.name)
+                    if (players[yi, 0] == p.truename)
                     {
                         curpid = yi;
                     }
@@ -1481,14 +1506,14 @@ namespace MCGalaxy
 
                 for (int i = 0; i < 100; i++)
                 {
-                    if (players[i, 0] == p.name) return;
+                    if (players[i, 0] == p.truename) return;
                 }
 
                 for (int i = 0; i < 100; i++)
                 {
                     if (players[i, 0] == null)
                     {
-                        players[i, 0] = p.name;
+                        players[i, 0] = p.truename;
                         players[i, 1] = Config.MaxHealth;
                         p.Extras["HUNGER"] = 1000;
                         players[i, 2] = "30000";
@@ -1794,7 +1819,7 @@ namespace MCGalaxy
                     p.Extras["POTION_IS_INVISIBLE"] = false;
 
                     Entities.GlobalSpawn(p, true);
-                    Server.hidden.Remove(p.name);
+                    Server.hidden.Remove(p.truename);
                     p.Message("The invisibility potion has worn off, you are now visible again.");
                     Server.MainScheduler.Cancel(task);
                 }
@@ -2600,7 +2625,7 @@ namespace MCGalaxy
                     p.Extras["POTION_IS_INVISIBLE"] = true;
 
                     Entities.GlobalDespawn(p, true); // Remove from tab list
-                    Server.hidden.Add(p.name);
+                    Server.hidden.Add(p.truename);
                     p.Extras["POTION_INV_TIMER"] = DateTime.UtcNow;
                     p.Message("%aYou are now invisible.");
                     p.Message("You have " + (i - 1) + " invisible potions remaining.");
@@ -2653,7 +2678,7 @@ namespace MCGalaxy
         {
             botName = botName.Replace(' ', '_');
             PlayerBot bot = new PlayerBot(botName, p.level);
-            bot.Owner = p.name;
+            bot.Owner = p.truename;
             TryAddBot(p, bot);
         }
 
