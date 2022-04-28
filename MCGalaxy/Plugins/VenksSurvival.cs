@@ -36,11 +36,10 @@
   1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
 
   IF YOU WANT MOB INSTRUCTIONS:
-  1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
+  1. Download my MobAI plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
-  2. Hunger?
   
  */
 
@@ -138,9 +137,13 @@ namespace MCGalaxy
                 w.WriteLine("# Whether or not this plugin should be controlled by other gamemode plugins. E.g, SkyWars.");
                 w.WriteLine("gamemode-only = false");
                 w.WriteLine("# Whether or not the player can die from natural causes. E.g, drowning.");
-                w.WriteLine("survival-death = true");
+                w.WriteLine("survival-damage = true");
                 w.WriteLine("# Whether or not players can drown.");
                 w.WriteLine("drowning = true");
+                w.WriteLine("# Whether or not players get hungry.");
+                w.WriteLine("hunger = true");
+                w.WriteLine("# Whether or not players take damage when falling from great heights.");
+                w.WriteLine("fall-damage = true");
                 w.WriteLine("# Whether or not players regenerate health.");
                 w.WriteLine("regeneration = true");
                 w.WriteLine("# Whether or not mining is enabled.");
@@ -150,7 +153,7 @@ namespace MCGalaxy
                 w.WriteLine("# If economy is enabled, the amount of money players get for killing other players.");
                 w.WriteLine("bounty = 1");
                 //w.WriteLine("mobs = false # Whether or not mobs are toggled.");
-                w.WriteLine("# The amount of health players have.");
+                w.WriteLine("# The amount of health players start with.");
                 w.WriteLine("max-health = 20");
                 w.WriteLine("# Whether or not to use Goodly's effects plugin for particles. Note: Needs GoodlyEffects to work.");
                 w.WriteLine("use-goodly-effects = false");
@@ -216,6 +219,7 @@ namespace MCGalaxy
                         players[i, 0] = p.name;
                         players[i, 1] = Config.MaxHealth;
                         players[i, 2] = "30000";
+                        p.Extras["HUNGER"] = 1000;
                         break;
                     }
                 }
@@ -378,6 +382,7 @@ namespace MCGalaxy
 
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
             players[i, 1] = Config.MaxHealth;
+            p.Extras["HUNGER"] = 1000;
             p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
             if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
@@ -502,11 +507,12 @@ namespace MCGalaxy
                     {
                         if (players[i, 0] == p.truename)
                         {
+                            int hunger = p.Extras.GetInt("HUNGER");
                             int a = int.Parse(players[i, 1]);
-                            if (a.ToString() == Config.MaxHealth)
-                            {
-                                continue;
-                            }
+
+                            if (a.ToString() == Config.MaxHealth) continue; // No need to regenerate health if player is already at max health
+                            if (Math.Floor((decimal)(hunger / 50)) < 18) continue; // Only regenerate health if player has 18+ hunger points
+
                             players[i, 1] = (a + 1) + "";
                             SetHpIndicator(i, p);
                         }
@@ -569,8 +575,7 @@ namespace MCGalaxy
 
         #endregion
 
-        #region Fall damage WIP
-        // TODO: Calculations are inaccurate and server can affect measurements. Use at own risk!
+        #region Fall damage
 
         void HandlePlayerMove(Player p, Position next, byte rotX, byte rotY)
         {
@@ -578,10 +583,10 @@ namespace MCGalaxy
             {
                 if (Config.Hunger)
                 {
+                    int hunger = p.Extras.GetInt("HUNGER");
                     // Check to see if the player is sprinting and has at least 6 hunger points
-                    if (DetectSprint(p, next) && p.Extras.GetInt("HUNGER") > 300)
+                    if (DetectSprint(p, next) && hunger >= 300)
                     {
-                        int hunger = p.Extras.GetInt("HUNGER");
                         p.Extras["SPRINTING"] = true;
                         p.Extras["SPRINT_TIME"] = p.Extras.GetInt("SPRINT_TIME") + 1;
 
@@ -595,7 +600,6 @@ namespace MCGalaxy
                             {
                                 int heldFor = p.Extras.GetInt("SPRINT_TIME");
 
-                                // The client's click speed is ~4 times/second
                                 TimeSpan duration = TimeSpan.FromSeconds(heldFor);
 
                                 p.Extras["SPRINTING"] = false;
@@ -1258,6 +1262,7 @@ namespace MCGalaxy
                                                         //pl.Game.Referee = true;
 
                                                         players[i, 1] = Config.MaxHealth;
+                                                        p.Extras["HUNGER"] = 1000;
 
                                                         pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
 
@@ -1445,7 +1450,7 @@ namespace MCGalaxy
 
                                     string id = raw.Substring(from, to - from);
 
-                                    p.Message((BlockID)Convert.ToUInt16(id) + " " + (BlockID)i);
+                                    //p.Message((BlockID)Convert.ToUInt16(id) + " " + (BlockID)i);
                                     p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)i, p.hasExtBlocks));
                                     continue;
                                 }
@@ -1485,6 +1490,7 @@ namespace MCGalaxy
                     {
                         players[i, 0] = p.name;
                         players[i, 1] = Config.MaxHealth;
+                        p.Extras["HUNGER"] = 1000;
                         players[i, 2] = "30000";
                         return;
                     }
