@@ -89,6 +89,9 @@ namespace MCGalaxy
             [ConfigBool("fall-damage", "Survival", true)]
             public static bool FallDamage = true;
 
+            [ConfigBool("hunger", "Survival", true)]
+            public static bool Hunger = true;
+
             [ConfigBool("mining", "Survival", true)]
             public static bool Mining = true;
 
@@ -165,6 +168,7 @@ namespace MCGalaxy
         public static string[,] blocks = new string[255, 3];
 
         public static SchedulerTask drownTask;
+        public static SchedulerTask hungerTask;
         public static SchedulerTask regenTask;
 
         public override void Load(bool startup)
@@ -184,11 +188,12 @@ namespace MCGalaxy
 
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
-            if (Config.FallDamage) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
+            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
             OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
 
             if (Config.Drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
+            if (Config.Hunger) Server.MainScheduler.QueueRepeat(HandleHunger, null, TimeSpan.FromSeconds(1));
             if (Config.Regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
 
             Command.Register(new CmdPvP());
@@ -223,7 +228,7 @@ namespace MCGalaxy
             // Unload events
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
-            if (Config.FallDamage) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
+            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
             OnBlockChangingEvent.Unregister(HandleBlockChanged);
 
@@ -240,6 +245,7 @@ namespace MCGalaxy
 
             // Unload tasks
             Server.MainScheduler.Cancel(drownTask);
+            Server.MainScheduler.Cancel(hungerTask);
             Server.MainScheduler.Cancel(regenTask);
         }
 
@@ -511,6 +517,58 @@ namespace MCGalaxy
 
         #endregion
 
+        #region Hunger
+
+        void HandleHunger(SchedulerTask task)
+        {
+            hungerTask = task;
+
+            if (!Config.SurvivalDamage) return;
+            Player[] online = PlayerInfo.Online.Items;
+            foreach (Player p in online)
+            {
+                if (maplist.Contains(p.level.name))
+                {
+                    if (p.invincible) continue;
+
+                    int hunger = p.Extras.GetInt("HUNGER");
+
+                    p.SendCpeMessage(CpeMessageType.BottomRight3, Math.Floor((decimal)(hunger / 50)) + " hunger");
+
+                    // Start depleting health if hunger is 0 (this isn't possible currently since hunger stops at 6)
+                    if (hunger == 0)
+                    {
+                        for (int i = 0; i < 100; i++)
+                        {
+                            if (players[i, 0] == p.truename)
+                            {
+                                int a = int.Parse(players[i, 1]);
+                                // If player has 5 or less hearts left, don't bother doing damage
+                                if (a <= 10) continue;
+
+                                if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
+                                players[i, 1] = (a - 1) + "";
+                                SetHpIndicator(i, p);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public bool DetectSprint(Player p, Position newPos)
+        {
+            if (p.invincible || p.Game.Referee) return false;
+            int dx = Math.Abs(p.Pos.X - newPos.X), dz = Math.Abs(p.Pos.Z - newPos.Z);
+
+            bool speeding = dx >= 8 || dz >= 8;
+
+            //p.Message((speeding ? "%a" : "%c")  + speeding + " %edx " + dx + " dz " + dz);
+            return speeding;
+        }
+
+        #endregion
+
         #region Fall damage WIP
         // TODO: Calculations are inaccurate and server can affect measurements. Use at own risk!
 
@@ -518,68 +576,114 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
-                if (p.invincible || Hacks.CanUseFly(p)) return;
-
-                ushort x = (ushort)(p.Pos.X / 32);
-                ushort y = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) - 1);
-                ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) - 2);
-                ushort z = (ushort)(p.Pos.Z / 32);
-
-                BlockID block = p.level.GetBlock((ushort)x, ((ushort)y), (ushort)z);
-                BlockID block2 = p.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
-
-                string below = Block.GetName(p, block);
-                string below2 = Block.GetName(p, block2);
-
-                // Don't do fall damage if player lands in deep water (2+ depth)
-
-                if (below.ToLower().Contains("water") && below2.ToLower().Contains("water"))
+                if (Config.Hunger)
                 {
-                    int fall = p.Extras.GetInt("FALL_START") - y;
-                    if (fallDamage(fall) > 0 && p.appName.CaselessContains("cef")) p.Message("cef resume -n splash"); // Play splash sound effect
-                    p.Extras["FALLING"] = false;
-                    p.Extras["FALL_START"] = y;
-                    return;
-                }
-
-                if (!p.Extras.GetBoolean("FALLING") && below.ToLower() == "air")
-                {
-                    p.Extras["FALLING"] = true;
-                    p.Extras["FALL_START"] = y;
-                }
-
-                else if (p.Extras.GetBoolean("FALLING") && below.ToLower() != "air")
-                {
-                    if (p.Extras.GetBoolean("FALLING"))
+                    // Check to see if the player is sprinting and has at least 6 hunger points
+                    if (DetectSprint(p, next) && p.Extras.GetInt("HUNGER") > 300)
                     {
-                        int fall = p.Extras.GetInt("FALL_START") - y;
+                        int hunger = p.Extras.GetInt("HUNGER");
+                        p.Extras["SPRINTING"] = true;
+                        p.Extras["SPRINT_TIME"] = p.Extras.GetInt("SPRINT_TIME") + 1;
 
-                        if (fallDamage(fall) > 0)
+                        // Deplete hunger by 1 until the player is starving
+                        if (hunger > 0)
                         {
-                            // Do damage to player
-                            for (int i = 0; i < 100; i++)
+                            p.Extras["HUNGER"] = p.Extras.GetInt("HUNGER") - 1;
+
+                            // If player has 6 (6 * 50 = 300) hunger points, stop sprinting
+                            if (p.Extras.GetInt("HUNGER") <= 300)
                             {
-                                if (players[i, 0] == p.truename)
-                                {
-                                    int a = int.Parse(players[i, 1]);
-                                    players[i, 1] = (a - fallDamage(fall)) + "";
-                                    a = int.Parse(players[i, 1]);
+                                int heldFor = p.Extras.GetInt("SPRINT_TIME");
 
-                                    SetHpIndicator(i, p);
+                                // The client's click speed is ~4 times/second
+                                TimeSpan duration = TimeSpan.FromSeconds(heldFor);
 
-                                    if (a <= 1)
-                                    {
-                                        KillPlayer(p, i, "fall");
-                                    }
+                                p.Extras["SPRINTING"] = false;
+                                p.Extras["SPRINT_TIME"] = 0;
 
-                                    else if (p.appName.CaselessContains("cef")) p.Message("cef resume -n fall"); // Play fall sound effect
-                                }
+                                // Disallow sprinting. 'nospeed' is a temporary flag for replacing later on, should a player replenish their hunger
+                                p.Send(Packet.Motd(p, p.level.Config.MOTD.Replace("maxspeed=", "nospeed=")));
                             }
                         }
+                    }
 
-                        // Reset extra variables
+                    else if (!DetectSprint(p, next) && p.Extras.GetBoolean("SPRINTING"))
+                    {
+                        int heldFor = p.Extras.GetInt("SPRINT_TIME");
+
+                        // The client's click speed is ~4 times/second
+                        TimeSpan duration = TimeSpan.FromSeconds(heldFor);
+
+                        p.Extras["SPRINTING"] = false;
+                        p.Extras["SPRINT_TIME"] = 0;
+                    }
+                }
+
+                if (Config.FallDamage)
+                {
+                    if (p.invincible || Hacks.CanUseFly(p)) return;
+
+                    ushort x = (ushort)(p.Pos.X / 32);
+                    ushort y = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) - 1);
+                    ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) - 2);
+                    ushort z = (ushort)(p.Pos.Z / 32);
+
+                    BlockID block = p.level.GetBlock((ushort)x, ((ushort)y), (ushort)z);
+                    BlockID block2 = p.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
+
+                    string below = Block.GetName(p, block);
+                    string below2 = Block.GetName(p, block2);
+
+                    // Don't do fall damage if player lands in deep water (2+ depth)
+
+                    if (below.ToLower().Contains("water") && below2.ToLower().Contains("water"))
+                    {
+                        int fall = p.Extras.GetInt("FALL_START") - y;
+                        if (fallDamage(fall) > 0 && p.appName.CaselessContains("cef")) p.Message("cef resume -n splash"); // Play splash sound effect
                         p.Extras["FALLING"] = false;
                         p.Extras["FALL_START"] = y;
+                        return;
+                    }
+
+                    if (!p.Extras.GetBoolean("FALLING") && below.ToLower() == "air")
+                    {
+                        p.Extras["FALLING"] = true;
+                        p.Extras["FALL_START"] = y;
+                    }
+
+                    else if (p.Extras.GetBoolean("FALLING") && below.ToLower() != "air")
+                    {
+                        if (p.Extras.GetBoolean("FALLING"))
+                        {
+                            int fall = p.Extras.GetInt("FALL_START") - y;
+
+                            if (fallDamage(fall) > 0)
+                            {
+                                // Do damage to player
+                                for (int i = 0; i < 100; i++)
+                                {
+                                    if (players[i, 0] == p.truename)
+                                    {
+                                        int a = int.Parse(players[i, 1]);
+                                        players[i, 1] = (a - fallDamage(fall)) + "";
+                                        a = int.Parse(players[i, 1]);
+
+                                        SetHpIndicator(i, p);
+
+                                        if (a <= 1)
+                                        {
+                                            KillPlayer(p, i, "fall");
+                                        }
+
+                                        else if (p.appName.CaselessContains("cef")) p.Message("cef resume -n fall"); // Play fall sound effect
+                                    }
+                                }
+                            }
+
+                            // Reset extra variables
+                            p.Extras["FALLING"] = false;
+                            p.Extras["FALL_START"] = y;
+                        }
                     }
                 }
             }
@@ -1281,6 +1385,9 @@ namespace MCGalaxy
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
+            // Initialize hunger
+            p.Extras["HUNGER"] = 1000;
+
             // If player has the CEF plugin, add sound effects
             if (maplist.Contains(p.level.name) && Config.FallDamage)
             {
@@ -1321,7 +1428,7 @@ namespace MCGalaxy
                             {
                                 if (rows[0][i].ToString().StartsWith("0"))
                                 {
-                                    p.Message(i + " empty");
+                                    //p.Message(i + " empty");
                                     p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
                                     continue;
                                 }
@@ -1346,7 +1453,7 @@ namespace MCGalaxy
 
                             else
                             {
-                                p.Message(i + " order");
+                                //p.Message(i + " order");
                                 p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
                             }
                         }
