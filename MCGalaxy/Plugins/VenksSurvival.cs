@@ -31,6 +31,9 @@
   IF YOU WANT SPRINTING:
   1. Type /map motd -speed maxspeed=1.47.
   2. To sprint, hold shift while running.
+
+  IF YOU WANT HUNGER:
+  1. Type /map motd +hunger
   
   IF YOU WANT TO SHOW THE BLOCK YOU'RE HOLDING TO OTHER PLAYERS:
   1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
@@ -74,7 +77,7 @@ namespace MCGalaxy
         public class Config
         {
             [ConfigBool("gamemode-only", "Survival", true)]
-            public static bool GamemodeOnly = true;
+            public static bool GamemodeOnly = false;
 
             [ConfigBool("survival-damage", "Survival", true)]
             public static bool SurvivalDamage = true;
@@ -171,6 +174,7 @@ namespace MCGalaxy
         public static string[,] blocks = new string[255, 3];
 
         public static SchedulerTask drownTask;
+        public static SchedulerTask guiTask;
         public static SchedulerTask hungerTask;
         public static SchedulerTask regenTask;
 
@@ -191,6 +195,7 @@ namespace MCGalaxy
 
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
+            OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
             OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
@@ -198,6 +203,8 @@ namespace MCGalaxy
             if (Config.Drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
             if (Config.Hunger) Server.MainScheduler.QueueRepeat(HandleHunger, null, TimeSpan.FromSeconds(1));
             if (Config.Regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
+
+            Server.MainScheduler.QueueRepeat(HandleGUI, null, TimeSpan.FromSeconds(1));
 
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
@@ -212,18 +219,22 @@ namespace MCGalaxy
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
             {
-                for (int i = 0; i < 100; i++)
+                if (!maplist.Contains(p.level.name))
                 {
-                    if (players[i, 0] == null)
+                    for (int i = 0; i < 100; i++)
                     {
-                        players[i, 0] = p.truename;
-                        players[i, 1] = Config.MaxHealth;
-                        players[i, 2] = "30000";
-                        p.Extras["HUNGER"] = 1000;
-                        break;
+                        if (players[i, 0] == null)
+                        {
+                            players[i, 0] = p.truename;
+                            players[i, 1] = Config.MaxHealth;
+                            players[i, 2] = "30000";
+                            p.Extras["HUNGER"] = 1000;
+                            break;
+                        }
                     }
+
+                    p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
                 }
-                p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
             }
         }
 
@@ -232,6 +243,7 @@ namespace MCGalaxy
             // Unload events
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
+            OnGettingMotdEvent.Unregister(HandleGettingMotd);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
             OnBlockChangingEvent.Unregister(HandleBlockChanged);
@@ -248,6 +260,7 @@ namespace MCGalaxy
             Command.Unregister(Command.Find("Inventory"));
 
             // Unload tasks
+            Server.MainScheduler.Cancel(guiTask);
             Server.MainScheduler.Cancel(drownTask);
             Server.MainScheduler.Cancel(hungerTask);
             Server.MainScheduler.Cancel(regenTask);
@@ -370,6 +383,50 @@ namespace MCGalaxy
             else File.Create(Config.Path + "maps.txt").Dispose();
         }
 
+        void HandleGettingMotd(Player p, ref string motd)
+        {
+            p.Extras["MOTD"] = motd;
+        }
+
+        #region GUI
+
+        void HandleGUI(SchedulerTask task)
+        {
+            guiTask = task;
+
+            Player[] online = PlayerInfo.Online.Items;
+            foreach (Player p in online)
+            {
+                if (maplist.Contains(p.level.name))
+                {
+                    BlockID block = p.GetHeldBlock();
+                    string held = Block.GetName(p, block);
+
+                    List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+                    int column = 0;
+                    int amount = 0;
+
+                    if (pRows.Count == 0) amount = 0;
+                    else
+                    {
+                        column = FindActiveSlot(pRows[0], GetID(block));
+                        if (column == 0) amount = 0;
+                        else amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
+                    }
+
+                    decimal hunger = Math.Floor((decimal)(p.Extras.GetInt("HUNGER") / 50));
+
+                    p.SendCpeMessage(CpeMessageType.BottomRight3, "%a" + held + " %8| %7x" + amount);
+                    p.SendCpeMessage(CpeMessageType.BottomRight2, "%f╒ %720 %bo %7" + p.Extras.GetInt("DROWNING") + " %f▀ %7" + hunger);
+
+                    // Health is handled with actions, not time so we don't need to draw that here
+                }
+            }
+        }
+
+        #endregion
+
         #region Drowning
 
         void KillPlayer(Player p, int i, string type)
@@ -377,13 +434,15 @@ namespace MCGalaxy
             if (type == "drown")
             {
                 p.HandleDeath(Block.Water);
-                p.Extras.Remove("DROWNING");
             }
 
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
             players[i, 1] = Config.MaxHealth;
+
             p.Extras["HUNGER"] = 1000;
-            p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+            p.Extras["DROWNING"] = 20;
+
+            p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
 
             if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
         }
@@ -416,75 +475,30 @@ namespace MCGalaxy
                     if (body == "Water" && head == "Water")
                     {
                         int number = p.Extras.GetInt("DROWNING");
-                        p.Extras["DROWNING"] = number + 1;
+                        p.Extras["DROWNING"] = number - 1;
                         int air = p.Extras.GetInt("DROWNING");
                         // (10 - number) + 1)
 
-                        if (air == 1)
+                        // If player is out of air, start doing damage
+                        if (air < 0)
                         {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooooooo");
-                        }
-                        if (air == 2)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooooooo");
-                        }
-                        if (air == 3)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooooo");
-                        }
-                        if (air == 4)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooooo");
-                        }
-                        if (air == 5)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooooo");
-                        }
-                        if (air == 6)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%booooo");
-                        }
-                        if (air == 7)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%boooo");
-                        }
-                        if (air == 8)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%booo");
-                        }
-                        if (air == 9)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%boo");
-                        }
-                        if (air == 10)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "%bo");
-                        }
-
-                        if (air > 10)
-                        {
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, "");
                             for (int i = 0; i < 100; i++)
                             {
                                 if (players[i, 0] == p.truename)
                                 {
                                     int a = int.Parse(players[i, 1]);
-                                    if (air >= 11)
-                                    {
-                                        if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
-                                        players[i, 1] = (a - 1) + "";
-                                        SetHpIndicator(i, p);
+                                    if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
+                                    players[i, 1] = (a - 1) + "";
+                                    SetHpIndicator(i, p);
 
-                                        if (a <= 1) KillPlayer(p, i, "drown");
-                                    }
+                                    if (a == 0) KillPlayer(p, i, "drown");
                                 }
                             }
                         }
                     }
                     else
                     {
-                        p.SendCpeMessage(CpeMessageType.BottomRight1, "");
-                        p.Extras.Remove("DROWNING");
+                        p.Extras["DROWNING"] = 20;
                     }
                 }
             }
@@ -529,17 +543,15 @@ namespace MCGalaxy
         {
             hungerTask = task;
 
-            if (!Config.SurvivalDamage) return;
+            if (!Config.SurvivalDamage || !Config.Hunger) return;
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
             {
-                if (maplist.Contains(p.level.name))
+                if (maplist.Contains(p.level.name) && p.level.Config.MOTD.ToLower().Contains("+hunger"))
                 {
                     if (p.invincible) continue;
 
                     int hunger = p.Extras.GetInt("HUNGER");
-
-                    p.SendCpeMessage(CpeMessageType.BottomRight3, Math.Floor((decimal)(hunger / 50)) + " hunger");
 
                     // Start depleting health if hunger is 0 (this isn't possible currently since hunger stops at 6)
                     if (hunger == 0)
@@ -581,11 +593,11 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
-                if (Config.Hunger)
+                if (Config.Hunger && p.level.Config.MOTD.ToLower().Contains("+hunger"))
                 {
                     int hunger = p.Extras.GetInt("HUNGER");
                     // Check to see if the player is sprinting and has at least 6 hunger points
-                    if (DetectSprint(p, next) && hunger >= 300)
+                    if (DetectSprint(p, next) && hunger > 300)
                     {
                         p.Extras["SPRINTING"] = true;
                         p.Extras["SPRINT_TIME"] = p.Extras.GetInt("SPRINT_TIME") + 1;
@@ -606,7 +618,11 @@ namespace MCGalaxy
                                 p.Extras["SPRINT_TIME"] = 0;
 
                                 // Disallow sprinting. 'nospeed' is a temporary flag for replacing later on, should a player replenish their hunger
-                                p.Send(Packet.Motd(p, p.level.Config.MOTD.Replace("maxspeed=", "nospeed=")));
+
+                                string motd = p.Extras.GetString("MOTD").Replace("maxspeed=", "nospeed=");
+                                p.Extras["MOTD"] = motd;
+
+                                p.Send(Packet.Motd(p, motd));
                             }
                         }
                     }
@@ -623,7 +639,7 @@ namespace MCGalaxy
                     }
                 }
 
-                if (Config.FallDamage)
+                if (Config.FallDamage && p.level.Config.SurvivalDeath)
                 {
                     if (p.invincible || Hacks.CanUseFly(p)) return;
 
@@ -891,8 +907,6 @@ namespace MCGalaxy
                         UpdateBlockList(p, column);
                         Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
                     }
-
-                    if (name.StartsWith("Chest-")) CreateChest(p, x, y, z);
                 }
             }
         }
@@ -971,6 +985,10 @@ namespace MCGalaxy
                         p.Message("%f╒ &c∩αΓ: &7You cannot modify blocks as a spectator.");
                         return;
                     }
+
+                    if (name.StartsWith("Chest-")) return;
+
+
                     //if (p.invincible) return;
 
                     if (p.Extras.GetInt("HOLDING_TIME") == 0)
@@ -1319,7 +1337,7 @@ namespace MCGalaxy
                                                         players[i, 1] = Config.MaxHealth;
                                                         p.Extras["HUNGER"] = 1000;
 
-                                                        pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+                                                        pl.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
 
                                                         if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                         {
@@ -1445,8 +1463,9 @@ namespace MCGalaxy
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
-            // Initialize hunger
+            // Initialize extras
             p.Extras["HUNGER"] = 1000;
+            p.Extras["DROWNING"] = 20;
 
             // If player has the CEF plugin, add sound effects
             if (maplist.Contains(p.level.name) && Config.FallDamage)
@@ -1532,7 +1551,7 @@ namespace MCGalaxy
 
             if (maplist.Contains(level.name))
             {
-                p.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+                p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
 
                 for (int i = 0; i < 100; i++)
                 {
@@ -1546,6 +1565,7 @@ namespace MCGalaxy
                         players[i, 0] = p.truename;
                         players[i, 1] = Config.MaxHealth;
                         p.Extras["HUNGER"] = 1000;
+                        p.Extras["DROWNING"] = 20;
                         players[i, 2] = "30000";
                         return;
                     }
@@ -1555,7 +1575,9 @@ namespace MCGalaxy
             if (prevLevel == null) return;
             if (!maplist.Contains(level.name))
             {
+                p.SendCpeMessage(CpeMessageType.BottomRight3, "");
                 p.SendCpeMessage(CpeMessageType.BottomRight2, "");
+                p.SendCpeMessage(CpeMessageType.BottomRight1, "");
             }
         }
 
@@ -1565,87 +1587,87 @@ namespace MCGalaxy
 
             if (a == 20)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥♥");
             }
             if (a == 19)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥╫");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥╫");
             }
             if (a == 18)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥♥%0♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥%0♥");
             }
             if (a == 17)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥╫%0♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥╫%0♥");
             }
             if (a == 16)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥♥%0♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥%0♥♥");
             }
             if (a == 15)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥╫%0♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥╫%0♥♥");
             }
             if (a == 14)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥♥%0♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥%0♥♥♥");
             }
             if (a == 13)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥╫%0♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥╫%0♥♥♥");
             }
             if (a == 12)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥♥%0♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥%0♥♥♥♥");
             }
             if (a == 11)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥╫%0♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥╫%0♥♥♥♥");
             }
             if (a == 10)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥♥%0♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥%0♥♥♥♥♥");
             }
             if (a == 9)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥╫%0♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥╫%0♥♥♥♥♥");
             }
             if (a == 8)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥♥%0♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥%0♥♥♥♥♥♥");
             }
             if (a == 7)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥╫%0♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥╫%0♥♥♥♥♥♥");
             }
             if (a == 6)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥♥%0♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥%0♥♥♥♥♥♥♥");
             }
             if (a == 5)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥╫%0♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥╫%0♥♥♥♥♥♥♥");
             }
             if (a == 4)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥♥%0♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥%0♥♥♥♥♥♥♥♥");
             }
             if (a == 3)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥╫%0♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥╫%0♥♥♥♥♥♥♥♥");
             }
             if (a == 2)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f♥%0♥♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥%0♥♥♥♥♥♥♥♥♥");
             }
             if (a == 1)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f╫%0♥♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f╫%0♥♥♥♥♥♥♥♥♥");
             }
             if (a == 0)
             {
-                pl.SendCpeMessage(CpeMessageType.BottomRight2, "%0♥♥♥♥♥♥♥♥♥♥");
+                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%0♥♥♥♥♥♥♥♥♥♥");
             }
         }
 
@@ -1907,6 +1929,94 @@ namespace MCGalaxy
         #endregion
     }
 
+    public class DropItem
+    {
+        public string Name { get { return "DropItem"; } }
+
+        public class DropItemData
+        {
+            public BlockID block;
+            public Vec3F32 pos, vel;
+            public Vec3U16 last, next;
+            public Vec3F32 drag;
+            public float gravity;
+        }
+
+        static Vec3U16 Round(Vec3F32 v)
+        {
+            return new Vec3U16((ushort)Math.Round(v.X), (ushort)Math.Round(v.Y), (ushort)Math.Round(v.Z));
+        }
+
+        public static DropItemData MakeArgs(Player p, Vec3F32 dir, BlockID block)
+        {
+            DropItemData args = new DropItemData();
+
+            args.drag = new Vec3F32(0.9f, 0.9f, 0.9f);
+            args.gravity = 0.08f;
+
+            args.pos = new Vec3F32(p.Pos.X / 32, p.Pos.Y / 32, p.Pos.Z / 32);
+            args.last = Round(args.pos);
+            args.next = Round(args.pos);
+            args.vel = new Vec3F32(dir.X * 0.9f, dir.Y * 0.9f, dir.Z * 0.9f);
+            return args;
+        }
+
+        public static void UpdateNext(Player p, DropItemData data)
+        {
+            string name = p.Extras.GetString("DROPPING_ITEM");
+            p.Message(name);
+            PlayerBot bot = Matcher.FindBots(p, name);
+            bot.Pos = new Position(data.next.X * 32, data.next.Y * 32, data.next.Z * 32);
+            //p.level.BroadcastChange(data.next.X, data.next.Y, data.next.Z, data.block);
+        }
+
+        public static void OnHitBlock(Player p, DropItemData args, Vec3U16 pos, BlockID block)
+        {
+            string name = p.Extras.GetString("DROPPING_ITEM");
+            p.Message(name);
+            PlayerBot bot = Matcher.FindBots(p, name);
+            bot.Pos = new Position(pos.X * 32, (pos.Y * 32) + 84, pos.Z * 32);
+        }
+
+        public static void DropItemCallback(SchedulerTask task)
+        {
+            Player[] players = PlayerInfo.Online.Items;
+            foreach (Player p in players)
+            {
+                if (p.Extras.GetString("DROPPING_ITEM") == "none") continue;
+                DropItemData data = (DropItemData)task.State;
+                if (TickDropItem(p, data)) return;
+
+                // Done
+                task.Repeating = false;
+                p.Extras["DROPPING_ITEM"] = "none";
+            }
+        }
+
+        static bool TickDropItem(Player p, DropItemData data)
+        {
+            Vec3U16 pos = data.next;
+            BlockID cur = p.level.GetBlock(pos.X, pos.Y, pos.Z);
+
+            // Hit a block
+            if (cur == Block.Invalid) return false;
+            if (cur != Block.Air) { OnHitBlock(p, data, pos, cur); return false; }
+
+            // Apply physics
+            data.pos += data.vel;
+            data.vel.X *= data.drag.X; data.vel.Y *= data.drag.Y; data.vel.Z *= data.drag.Z;
+            data.vel.Y -= data.gravity;
+
+            data.next = Round(data.pos);
+            if (data.last == data.next) return true;
+
+            // Moved a block, update in world
+            UpdateNext(p, data);
+            data.last = data.next;
+            return true;
+        }
+    }
+
     #region Commands
 
     public sealed class CmdInventory : Command2
@@ -2035,7 +2145,7 @@ namespace MCGalaxy
                         }
                     }
 
-                    pl.SendCpeMessage(CpeMessageType.BottomRight2, "♥♥♥♥♥♥♥♥♥♥");
+                    pl.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
                 }
             }
         }
@@ -2725,7 +2835,8 @@ namespace MCGalaxy
                 return;
             }
 
-            bot.SetInitialPos(p.Pos);
+            Position pos = new Position(p.Pos.X, p.Pos.Y + 32, p.Pos.Z);
+            bot.SetInitialPos(pos);
             bot.SetYawPitch(p.Rot.RotY, 0);
             PlayerBot.Add(bot);
         }
@@ -2769,16 +2880,17 @@ namespace MCGalaxy
         public override void Use(Player p, string message, CommandData data)
         {
             if (!PvP.maplist.Contains(p.level.name)) return;
-            Command.Find("SilentHold").Use(p, "air");
-            p.lastCMD = "Secret";
+
+            // Create the bot
             BlockID block = p.GetHeldBlock();
             string holding = Block.GetName(p, block);
             if (holding == "Air") return;
             string code = RandomNumber(1000, 1000000).ToString();
             AddBot(p, "block_" + code);
             PlayerBot bot = Matcher.FindBots(p, "block_" + code);
-            bot.DisplayName = "";
+            p.Extras["DROPPING_ITEM"] = "block_" + code;
 
+            bot.DisplayName = "";
             bot.GlobalDespawn();
             bot.GlobalSpawn();
 
@@ -2794,6 +2906,23 @@ namespace MCGalaxy
             bot.ClickedOnText = "/pickupblock " + code + " " + convertedBlock;
             if (!ScriptFile.Parse(p, bot, "spin")) return;
             BotsFile.Save(p.level);
+
+            // Drop item physics
+            Vec3F32 dir = DirUtils.GetDirVector(p.Rot.RotY, p.Rot.HeadX);
+            DropItem.DropItemData itemData = DropItem.MakeArgs(p, dir, block);
+            DropItem.UpdateNext(p, itemData);
+
+            SchedulerTask task = new SchedulerTask(DropItem.DropItemCallback, itemData, TimeSpan.FromMilliseconds(50), true);
+            p.CriticalTasks.Add(task);
+
+
+
+            // Adjust inventory
+
+            Command.Find("SilentHold").Use(p, "air");
+            p.lastCMD = "Secret";
+
+
         }
 
         public override void Help(Player p)
