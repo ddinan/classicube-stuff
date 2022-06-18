@@ -830,7 +830,6 @@ namespace MCGalaxy
                 Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
                 "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(1)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
-                p.Message("%SNew count: %b1");
 
                 UpdateBlockList(p, 1);
                 return;
@@ -846,8 +845,6 @@ namespace MCGalaxy
                 }
 
                 int newCount = pRows[0][column].ToString().StartsWith("0") ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + 1;
-
-                p.Message("%SNew count: %b" + newCount);
 
                 Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
 
@@ -894,8 +891,6 @@ namespace MCGalaxy
                     }
 
                     int newCount = pRows[0][column].ToString().StartsWith("0") ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) - 1;
-
-                    p.Message("%SNew count: %b" + newCount);
 
                     if (newCount == 0)
                     {
