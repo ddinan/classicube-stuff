@@ -589,7 +589,7 @@ namespace MCGalaxy
 
         #region Fall damage
 
-        void HandlePlayerMove(Player p, Position next, byte rotX, byte rotY)
+        void HandlePlayerMove(Player p, Position next, byte rotX, byte rotY, ref bool cancel)
         {
             if (maplist.Contains(p.level.name))
             {

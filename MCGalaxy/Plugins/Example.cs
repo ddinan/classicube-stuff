@@ -3,7 +3,6 @@ using System;
 namespace MCGalaxy {
 	public class Example : Plugin {
 		public override string name { get { return "Example"; } }
-		public override string website { get { return "www.example.com"; } }
 		public override string MCGalaxy_Version { get { return "1.9.1.2"; } }
 		public override int build { get { return 100; } }
 		public override string welcome { get { return "Loaded Message!"; } }

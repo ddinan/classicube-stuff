@@ -16,7 +16,7 @@ namespace Core
     public class VenkLib : Plugin
     {
         public override string creator { get { return "Venk"; } }
-        public override string MCGalaxy_Version { get { return "1.9.3.4"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
         public override string name { get { return "VenkLib"; } }
 
         public override void Load(bool startup)
@@ -440,11 +440,6 @@ namespace Core
                 Help(p);
                 return;
             }
-            if (!p.Supports(CpeExt.HeldBlock))
-            {
-                p.Message("Your client doesn't support changing your held block.");
-                return;
-            }
             string[] args = message.SplitSpaces(2);
 
             BlockID block;
@@ -458,8 +453,10 @@ namespace Core
                 return;
             }
 
-            BlockID raw = p.ConvertBlock(block);
-            p.Send(Packet.HoldThis(raw, locked, p.hasExtBlocks));
+            if (!p.Session.SendHoldThis(block, locked)) 
+            {
+                p.Message("Your client doesn't support changing your held block.");
+            }
         }
 
         public override void Help(Player p)
