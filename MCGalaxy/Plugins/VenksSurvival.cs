@@ -1,4 +1,4 @@
-/* 
+﻿/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -43,7 +43,7 @@
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
-  
+
  */
 
 using System;
@@ -64,6 +64,7 @@ using MCGalaxy.Network;
 using MCGalaxy.Scripting;
 using MCGalaxy.SQL;
 using MCGalaxy.Tasks;
+
 using BlockID = System.UInt16;
 
 namespace MCGalaxy
@@ -71,7 +72,7 @@ namespace MCGalaxy
     public class PvP : Plugin
     {
         public override string name { get { return "&aVenk's Survival%S"; } } // To unload /punload Survival
-        public override string MCGalaxy_Version { get { return "1.9.3.8"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
         public override string creator { get { return "Venk and Sirvoid"; } }
 
         public class Config
@@ -793,7 +794,7 @@ namespace MCGalaxy
             {
                 if (pRows[0][column].ToString().StartsWith("0"))
                 {
-                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.hasExtBlocks));
+                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
                 }
 
                 else
@@ -807,7 +808,7 @@ namespace MCGalaxy
                     int to = raw.LastIndexOf("(");
 
                     string id = raw.Substring(from, to - from);
-                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)column, p.hasExtBlocks));
+                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)column, p.Session.hasExtBlocks));
                 }
             }
         }
@@ -895,7 +896,7 @@ namespace MCGalaxy
                     if (newCount == 0)
                     {
                         Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
-                        p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.hasExtBlocks));
+                        p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
                     }
                     else
                     {
@@ -1490,7 +1491,7 @@ namespace MCGalaxy
                     {
                         for (int i = 0; i < 767; i++)
                         {
-                            p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                            p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.Session.hasExtBlocks));
                         }
                     }
 
@@ -1503,7 +1504,7 @@ namespace MCGalaxy
                                 if (rows[0][i].ToString().StartsWith("0"))
                                 {
                                     //p.Message(i + " empty");
-                                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                                    p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.Session.hasExtBlocks));
                                     continue;
                                 }
 
@@ -1520,7 +1521,7 @@ namespace MCGalaxy
                                     string id = raw.Substring(from, to - from);
 
                                     //p.Message((BlockID)Convert.ToUInt16(id) + " " + (BlockID)i);
-                                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)i, p.hasExtBlocks));
+                                    p.Send(Packet.SetInventoryOrder((BlockID)Convert.ToUInt16(id), (BlockID)i, p.Session.hasExtBlocks));
                                     continue;
                                 }
                             }
@@ -1528,7 +1529,7 @@ namespace MCGalaxy
                             else
                             {
                                 //p.Message(i + " order");
-                                p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.hasExtBlocks));
+                                p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.Session.hasExtBlocks));
                             }
                         }
                     }
