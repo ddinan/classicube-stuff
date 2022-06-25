@@ -440,11 +440,6 @@ namespace Core
                 Help(p);
                 return;
             }
-            if (!p.Supports(CpeExt.HeldBlock))
-            {
-                p.Message("Your client doesn't support changing your held block.");
-                return;
-            }
             string[] args = message.SplitSpaces(2);
 
             BlockID block;
@@ -458,8 +453,10 @@ namespace Core
                 return;
             }
 
-            BlockID raw = p.Session.ConvertBlock(block);
-            p.Send(Packet.HoldThis(raw, locked, p.Session.hasExtBlocks));
+            if (!p.Session.SendHoldThis(block, locked)) 
+            {
+                p.Message("Your client doesn't support changing your held block.");
+            }
         }
 
         public override void Help(Player p)

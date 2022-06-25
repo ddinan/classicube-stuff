@@ -21,7 +21,7 @@ namespace Core {
             if (!(cmd == "whonick" || cmd == "realname")) return;
             
             // Get MOTD of map
-			LevelConfig cfg = LevelInfo.GetConfig(p.level.name, out p.level); 		
+			LevelConfig cfg = p.level.Config;
 
         	if (cfg.MOTD.ToLower().Contains("-nicks")) {
                 p.Message("You cannot use that command in this map.");
