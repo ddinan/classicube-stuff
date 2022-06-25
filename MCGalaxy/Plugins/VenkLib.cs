@@ -16,7 +16,7 @@ namespace Core
     public class VenkLib : Plugin
     {
         public override string creator { get { return "Venk"; } }
-        public override string MCGalaxy_Version { get { return "1.9.3.4"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
         public override string name { get { return "VenkLib"; } }
 
         public override void Load(bool startup)
@@ -458,8 +458,8 @@ namespace Core
                 return;
             }
 
-            BlockID raw = p.ConvertBlock(block);
-            p.Send(Packet.HoldThis(raw, locked, p.hasExtBlocks));
+            BlockID raw = p.Session.ConvertBlock(block);
+            p.Send(Packet.HoldThis(raw, locked, p.Session.hasExtBlocks));
         }
 
         public override void Help(Player p)
