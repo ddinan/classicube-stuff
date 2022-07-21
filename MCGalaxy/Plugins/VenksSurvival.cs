@@ -1,4 +1,4 @@
-﻿/* 
+/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -110,8 +110,8 @@ namespace MCGalaxy
             [ConfigBool("use-goodly-effects", "Extra", false)]
             public static bool UseGoodlyEffects = false;
 
-            [ConfigString("max-health", "Survival", "20")]
-            public static string MaxHealth = "20";
+            [ConfigInt("max-health", "Survival", 20)]
+            public static int MaxHealth = 20;
 
             [ConfigString("path", "Extra", "./plugins/VenksSurvival/")]
             public static string Path = "./plugins/VenksSurvival/";
@@ -220,16 +220,17 @@ namespace MCGalaxy
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
             {
-                if (!maplist.Contains(p.level.name))
+                if (maplist.Contains(p.level.name))
                 {
                     for (int i = 0; i < 100; i++)
                     {
                         if (players[i, 0] == null)
                         {
                             players[i, 0] = p.truename;
-                            players[i, 1] = Config.MaxHealth;
+                            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
                             players[i, 2] = "30000";
                             p.Extras["HUNGER"] = 1000;
+                            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
                             break;
                         }
                     }
@@ -430,22 +431,62 @@ namespace MCGalaxy
 
         #region Drowning
 
-        void KillPlayer(Player p, int i, string type)
+        public static string GetHealthBar(int health)
         {
-            if (type == "drown")
+            if (health == 20) return "%f♥♥♥♥♥♥♥♥♥♥";
+            if (health == 19) return "%f♥♥♥♥♥♥♥♥♥╫";
+            if (health == 18) return "%f♥♥♥♥♥♥♥♥♥%0♥";
+            if (health == 17) return "%f♥♥♥♥♥♥♥♥╫%0♥";
+            if (health == 16) return "%f♥♥♥♥♥♥♥♥%0♥♥";
+            if (health == 15) return "%f♥♥♥♥♥♥♥╫%0♥♥";
+            if (health == 14) return "%f♥♥♥♥♥♥♥%0♥♥♥";
+            if (health == 13) return "%f♥♥♥♥♥♥╫%0♥♥♥";
+            if (health == 12) return "%f♥♥♥♥♥♥%0♥♥♥♥";
+            if (health == 11) return "%f♥♥♥♥♥╫%0♥♥♥♥";
+            if (health == 10) return "%f♥♥♥♥♥%0♥♥♥♥♥";
+            if (health == 9) return "%f♥♥♥♥╫%0♥♥♥♥♥";
+            if (health == 8) return "%f♥♥♥♥%0♥♥♥♥♥♥";
+            if (health == 7) return "%f♥♥♥╫%0♥♥♥♥♥♥";
+            if (health == 6) return "%f♥♥♥%0♥♥♥♥♥♥♥";
+            if (health == 5) return "%f♥♥╫%0♥♥♥♥♥♥♥";
+            if (health == 4) return "%f♥♥%0♥♥♥♥♥♥♥♥";
+            if (health == 3) return "%f♥╫%0♥♥♥♥♥♥♥♥";
+            if (health == 2) return "%f♥%0♥♥♥♥♥♥♥♥♥";
+            if (health == 1) return "%f╫%0♥♥♥♥♥♥♥♥♥";
+            if (health == 0) return "%0♥♥♥♥♥♥♥♥♥♥";
+            return "";
+        }
+
+        void DoDamage(Player p, int damage, string type)
+        {
+            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+            p.Extras["SURVIVAL_HEALTH"] = health - damage;
+            health = p.Extras.GetInt("SURVIVAL_HEALTH");
+
+            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(health));
+
+            if (health <= 1) KillPlayer(p, type);
+
+            else if (p.appName.CaselessContains("cef"))
             {
-                p.HandleDeath(Block.Water);
+                if (type == "drown") p.Message("cef resume -n hit"); // Play hit sound effect
+                if (type == "fall") p.Message("cef resume -n fall"); // Play fall sound effect
             }
+        }
 
+        void KillPlayer(Player p, string type)
+        {
+            if (type == "drown") p.HandleDeath(Block.Water);
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
-            players[i, 1] = Config.MaxHealth;
 
+            if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
+
+            // Reset variables upon death
+            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
             p.Extras["HUNGER"] = 1000;
             p.Extras["DROWNING"] = 20;
 
-            p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
-
-            if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
+            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
         }
 
         void HandleDrown(SchedulerTask task)
@@ -453,15 +494,15 @@ namespace MCGalaxy
             drownTask = task;
 
             if (!Config.SurvivalDamage) return;
+
             Player[] online = PlayerInfo.Online.Items;
+
             foreach (Player p in online)
             {
                 if (maplist.Contains(p.level.name))
                 {
-                    if (p.invincible)
-                    {
-                        continue;
-                    }
+                    if (p.invincible) continue;
+
                     ushort x = (ushort)(p.Pos.X / 32);
                     ushort y = (ushort)((p.Pos.Y - Entities.CharacterHeight) / 32);
                     ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) + 1);
@@ -481,21 +522,7 @@ namespace MCGalaxy
                         // (10 - number) + 1)
 
                         // If player is out of air, start doing damage
-                        if (air < 0)
-                        {
-                            for (int i = 0; i < 100; i++)
-                            {
-                                if (players[i, 0] == p.truename)
-                                {
-                                    int a = int.Parse(players[i, 1]);
-                                    if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
-                                    players[i, 1] = (a - 1) + "";
-                                    SetHpIndicator(i, p);
-
-                                    if (a == 0) KillPlayer(p, i, "drown");
-                                }
-                            }
-                        }
+                        if (air < 0) DoDamage(p, 1, "drown");
                     }
                     else
                     {
@@ -523,13 +550,12 @@ namespace MCGalaxy
                         if (players[i, 0] == p.truename)
                         {
                             int hunger = p.Extras.GetInt("HUNGER");
-                            int a = int.Parse(players[i, 1]);
+                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
 
-                            if (a.ToString() == Config.MaxHealth) continue; // No need to regenerate health if player is already at max health
+                            if (health == Config.MaxHealth) continue; // No need to regenerate health if player is already at max health
                             if (Math.Floor((decimal)(hunger / 50)) < 18) continue; // Only regenerate health if player has 18+ hunger points
 
-                            players[i, 1] = (a + 1) + "";
-                            SetHpIndicator(i, p);
+                            p.Extras["SURVIVAL_HEALTH"] = health + 1;
                         }
                     }
                 }
@@ -561,13 +587,12 @@ namespace MCGalaxy
                         {
                             if (players[i, 0] == p.truename)
                             {
-                                int a = int.Parse(players[i, 1]);
+                                int health = p.Extras.GetInt("SURVIVAL_HEALTH");
                                 // If player has 5 or less hearts left, don't bother doing damage
-                                if (a <= 10) continue;
+                                if (health <= 10) continue;
 
                                 if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
-                                players[i, 1] = (a - 1) + "";
-                                SetHpIndicator(i, p);
+                                p.Extras["SURVIVAL_HEALTH"] = health - 1;
                             }
                         }
                     }
@@ -678,28 +703,7 @@ namespace MCGalaxy
                         {
                             int fall = p.Extras.GetInt("FALL_START") - y;
 
-                            if (fallDamage(fall) > 0)
-                            {
-                                // Do damage to player
-                                for (int i = 0; i < 100; i++)
-                                {
-                                    if (players[i, 0] == p.truename)
-                                    {
-                                        int a = int.Parse(players[i, 1]);
-                                        players[i, 1] = (a - fallDamage(fall)) + "";
-                                        a = int.Parse(players[i, 1]);
-
-                                        SetHpIndicator(i, p);
-
-                                        if (a <= 1)
-                                        {
-                                            KillPlayer(p, i, "fall");
-                                        }
-
-                                        else if (p.appName.CaselessContains("cef")) p.Message("cef resume -n fall"); // Play fall sound effect
-                                    }
-                                }
-                            }
+                            if (fallDamage(fall) > 0) DoDamage(p, fallDamage(fall), "fall");
 
                             // Reset extra variables
                             p.Extras["FALLING"] = false;
@@ -926,24 +930,16 @@ namespace MCGalaxy
 
                         else
                         {
-                            for (int i = 0; i < 100; i++)
-                            {
-                                if (players[i, 0] == p.truename)
-                                {
-                                    int a = int.Parse(players[i, 1]);
-                                    if (a <= int.Parse(Config.MaxHealth) - 4) players[i, 1] = (a + 4) + ""; // Give 4 health points
-                                    else players[i, 1] = Config.MaxHealth; // Set to max health if over (max - 4)
+                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+                            if (health <= Config.MaxHealth - 4) p.Extras["SURVIVAL_HEALTH"] = health + 4; // Give 4 health points
+                            else p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth; // Set to max health if over (max - 4)
 
-                                    SetHpIndicator(i, p);
+                            int hunger = p.Extras.GetInt("HUNGER");
+                            if (hunger < 800) p.Extras["HUNGER"] = hunger + 200; // Give back 4 food points
+                            else p.Extras["HUNGER"] = 1000; // Set to max if over 800
 
-                                    int hunger = p.Extras.GetInt("HUNGER");
-                                    if (hunger < 800) p.Extras["HUNGER"] = hunger + 200; // Give back 4 food points
-                                    else p.Extras["HUNGER"] = 1000; // Set to max if over 800
-
-                                    p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
-                                    return;
-                                }
-                            }
+                            p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
+                            return;
                         }
                     }
 
@@ -1293,47 +1289,34 @@ namespace MCGalaxy
                                                 if (pl.Game.Referee) return;
                                                 if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
 
-                                                int a = int.Parse(players[i, 1]);
+                                                int health = p.Extras.GetInt("SURVIVAL_HEALTH");
 
                                                 BlockID b = p.GetHeldBlock();
                                                 string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
                                                 //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
 
-                                                if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] == "0")
+                                                if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] != "0")
                                                 {
                                                     // Calculate damage from weapon
                                                     int damage = 1;
-                                                    if (weaponstats[0] != "0")
-                                                    {
-                                                        damage = Int32.Parse(weaponstats[1]);
-                                                        players[i, 1] = (a - damage) + "";
-                                                    }
-                                                    else players[i, 1] = (a - 1) + "";
 
-                                                    if (a > 0)
-                                                    {
-                                                        p.Message("%c-" + damage + " %7(%b{0} %f♥ %bleft%7)", players[i, 1]);
-                                                    }
-                                                    SetHpIndicator(i, pl);
+                                                    if (weaponstats[0] != "0") damage = Int32.Parse(weaponstats[1]);
 
-                                                    if (a <= 0)
-                                                    { // If player killed them
+                                                    DoDamage(p, 1, "pvp");
+
+                                                    if (health > 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
+
+                                                    // If player killed them
+
+                                                    if (health <= 0)
+                                                    {
                                                         string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
                                                         pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
-                                                        pl.Extras["KILLEDBY"] = p.truename; // Support for custom gamemodes
                                                         pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
                                                         pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
-                                                                                      // Use string killedBy = p.Extras.GetInt("KILLEDBY") to get the player who killed them
                                                                                       // Use string killer = p.Extras.GetInt("KILLER") to get the killer
 
-                                                        pl.HandleDeath(Block.Stone);
-                                                        p.Extras.Remove("DROWNING");
-                                                        //pl.Game.Referee = true;
-
-                                                        players[i, 1] = Config.MaxHealth;
-                                                        p.Extras["HUNGER"] = 1000;
-
-                                                        pl.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
+                                                        KillPlayer(p, "player");
 
                                                         if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                         {
@@ -1356,8 +1339,7 @@ namespace MCGalaxy
                                                                     }
                                                                     else
                                                                     {
-                                                                        p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" +
-                                                                            bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
+                                                                        p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" + bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
                                                                         p.SetMoney(p.money + bounty.Amount);
                                                                     }
                                                                 }
@@ -1423,7 +1405,7 @@ namespace MCGalaxy
 
                         BlockID b = p.GetHeldBlock();
                         string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                        if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
+                        if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0") return false;
 
                         PushPlayer(p, pl);
                     }
@@ -1460,11 +1442,23 @@ namespace MCGalaxy
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
             // Initialize extras
+            p.Extras["SURVIVAL_HEALTH"] = 20;
             p.Extras["HUNGER"] = 1000;
             p.Extras["DROWNING"] = 20;
 
+            // Clear HUD if player isn't in a survival world
+            if (!maplist.Contains(level.name))
+            {
+                p.SendCpeMessage(CpeMessageType.BottomRight3, "");
+                p.SendCpeMessage(CpeMessageType.BottomRight2, "");
+                p.SendCpeMessage(CpeMessageType.BottomRight1, "");
+                return;
+            }
+
+            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
+
             // If player has the CEF plugin, add sound effects
-            if (maplist.Contains(p.level.name) && Config.FallDamage)
+            if (Config.FallDamage)
             {
                 if (p.appName.CaselessContains("cef"))
                 {
@@ -1479,6 +1473,7 @@ namespace MCGalaxy
             {
                 if (Config.GamemodeOnly)
                 {
+                    // Delete inventories after round ends
                     List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
                     if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
                 }
@@ -1489,6 +1484,7 @@ namespace MCGalaxy
 
                     if (rows.Count == 0)
                     {
+                        // Make block menu (inventory) appear completely empty
                         for (int i = 0; i < 767; i++)
                         {
                             p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)i, p.Session.hasExtBlocks));
@@ -1543,127 +1539,17 @@ namespace MCGalaxy
                 p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
             }
 
-            Command.Find("PvP").Use(p, "sethp " + p.truename + " " + Config.MaxHealth);
-
-            if (maplist.Contains(level.name))
+            for (int i = 0; i < 100; i++)
             {
-                p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
-
-                for (int i = 0; i < 100; i++)
+                if (players[i, 0] == null)
                 {
-                    if (players[i, 0] == p.truename) return;
+                    players[i, 0] = p.truename;
+                    p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
+                    p.Extras["HUNGER"] = 1000;
+                    p.Extras["DROWNING"] = 20;
+                    players[i, 2] = "30000";
+                    return;
                 }
-
-                for (int i = 0; i < 100; i++)
-                {
-                    if (players[i, 0] == null)
-                    {
-                        players[i, 0] = p.truename;
-                        players[i, 1] = Config.MaxHealth;
-                        p.Extras["HUNGER"] = 1000;
-                        p.Extras["DROWNING"] = 20;
-                        players[i, 2] = "30000";
-                        return;
-                    }
-                }
-            }
-
-            if (prevLevel == null) return;
-            if (!maplist.Contains(level.name))
-            {
-                p.SendCpeMessage(CpeMessageType.BottomRight3, "");
-                p.SendCpeMessage(CpeMessageType.BottomRight2, "");
-                p.SendCpeMessage(CpeMessageType.BottomRight1, "");
-            }
-        }
-
-        public static void SetHpIndicator(int i, Player pl)
-        {
-            int a = int.Parse(players[i, 1]);
-
-            if (a == 20)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥♥");
-            }
-            if (a == 19)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥╫");
-            }
-            if (a == 18)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥♥%0♥");
-            }
-            if (a == 17)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥╫%0♥");
-            }
-            if (a == 16)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥♥%0♥♥");
-            }
-            if (a == 15)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥╫%0♥♥");
-            }
-            if (a == 14)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥♥%0♥♥♥");
-            }
-            if (a == 13)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥╫%0♥♥♥");
-            }
-            if (a == 12)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥♥%0♥♥♥♥");
-            }
-            if (a == 11)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥╫%0♥♥♥♥");
-            }
-            if (a == 10)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥♥%0♥♥♥♥♥");
-            }
-            if (a == 9)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥╫%0♥♥♥♥♥");
-            }
-            if (a == 8)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥♥%0♥♥♥♥♥♥");
-            }
-            if (a == 7)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥╫%0♥♥♥♥♥♥");
-            }
-            if (a == 6)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥♥%0♥♥♥♥♥♥♥");
-            }
-            if (a == 5)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥╫%0♥♥♥♥♥♥♥");
-            }
-            if (a == 4)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥♥%0♥♥♥♥♥♥♥♥");
-            }
-            if (a == 3)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥╫%0♥♥♥♥♥♥♥♥");
-            }
-            if (a == 2)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f♥%0♥♥♥♥♥♥♥♥♥");
-            }
-            if (a == 1)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%f╫%0♥♥♥♥♥♥♥♥♥");
-            }
-            if (a == 0)
-            {
-                pl.SendCpeMessage(CpeMessageType.BottomRight1, "%0♥♥♥♥♥♥♥♥♥♥");
             }
         }
 
@@ -2096,9 +1982,6 @@ namespace MCGalaxy
                 case "del":
                     HandleDelete(p, args, data);
                     return;
-                case "sethp":
-                    HandleSetHP(p, args, data);
-                    return;
             }
         }
 
@@ -2109,6 +1992,7 @@ namespace MCGalaxy
                 p.Message("You need to specify a map to add.");
                 return;
             }
+
             if (!HasExtraPerm(p, data.Rank, 1)) return;
             string pvpMap = args[1];
 
@@ -2128,20 +2012,21 @@ namespace MCGalaxy
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player pl in online)
             {
-                if (pl.level.name == args[1])
+                if (pl.level.name.ToLower() == args[1].ToLower())
                 {
                     for (int i = 0; i < 100; i++)
                     {
                         if (PvP.players[i, 0] == null)
                         {
-                            PvP.players[i, 0] = pl.name;
-                            PvP.players[i, 1] = PvP.Config.MaxHealth;
+                            PvP.players[i, 0] = p.truename;
+                            p.Extras["SURVIVAL_HEALTH"] = PvP.Config.MaxHealth;
+                            p.Extras["HUNGER"] = 1000;
+                            p.Extras["DROWNING"] = 20;
+                            p.SendCpeMessage(CpeMessageType.BottomRight1, PvP.GetHealthBar(20));
                             PvP.players[i, 2] = "30000";
-                            break;
+                            return;
                         }
                     }
-
-                    pl.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
                 }
             }
         }
@@ -2160,50 +2045,10 @@ namespace MCGalaxy
             p.Message("The map %b" + pvpMap + " %Shas been removed from the PvP map list.");
         }
 
-        // Sekrit cmd
-
-        void HandleSetHP(Player p, string[] args, CommandData data)
-        {
-            if (args.Length == 1)
-            {
-                p.Message("You need to specify a player to set their health.");
-                return;
-            }
-            if (args.Length == 2)
-            {
-                p.Message("You need to specify an amount of health to set.");
-                return;
-            }
-
-            Player[] online = PlayerInfo.Online.Items;
-            Player target = PlayerInfo.FindMatches(p, args[1]);
-            if (target == null) return;
-            foreach (Player pl in online)
-            {
-                if (PvP.maplist.Contains(p.level.name))
-                {
-                    if (pl.invincible)
-                    {
-                        continue;
-                    }
-
-                    for (int i = 0; i < 100; i++)
-                    {
-                        if (PvP.players[i, 0] == target.name)
-                        {
-                            PvP.players[i, 1] = args[2];
-                            PvP.SetHpIndicator(i, target);
-                        }
-                    }
-                }
-            }
-        }
-
         public override void Help(Player p)
         {
             p.Message("%T/PvP add <map> %H- Adds a map to the PvP map list.");
             p.Message("%T/PvP del <map> %H- Deletes a map from the PvP map list.");
-            // p.Message("%T/PvP sethp [player] [1-20] %H- Sets a player's health.");
         }
     }
 
@@ -2715,7 +2560,7 @@ namespace MCGalaxy
 
                     // Use potion
                     Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, h - 1);
-                    Command.Find("PvP").Use(p, "sethp " + PvP.Config.SecretCode + " " + p.truename + " 20");
+                    p.Extras["SURVIVAL_HEALTH"] = 20;
                     p.Message("Your health has been replenished.");
                     p.Message("You have " + (h - 1) + " health potions remaining.");
                 }
