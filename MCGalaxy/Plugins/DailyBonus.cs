@@ -97,7 +97,7 @@ namespace Core
                 if (streaks.FindData(pl.name) != null) streak = int.Parse(streaks.FindData(pl.name));
 
                 // Check to see if there is a 2 day gap between current date and last claimed date
-                if ((DateTime.Now - DateTime.Parse(lastDate)).Days >= 2) streaks.Update(pl.name, "1");
+                if (lastDate == null || (DateTime.Now - DateTime.Parse(lastDate)).Days >= 2) streaks.Update(pl.name, "1");
                 else streaks.Update(pl.name, (streak + 1).ToString());
 
                 streaks.Save();
