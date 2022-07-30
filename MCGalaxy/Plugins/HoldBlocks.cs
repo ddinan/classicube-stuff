@@ -1,4 +1,4 @@
-// This plugin requires my VenkLib plugin. Install it from here: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/VenkLib.cs.
+// This plugin requires my VenkLib plugin. Install it from here: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/VenkLib.cs.
 // To add: Set map MOTD to include +hold then every block you change to will update your model.
 // E.g, /map motd +hold
 // NOTE: Does not work if you are not a human or hold model

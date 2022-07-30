@@ -8,7 +8,7 @@
 
     This plugin requires the HoldBlocks and CustomModels plugins to function properly!
 
-    HoldBlocks: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs
+    HoldBlocks: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs
     CustomModels: https://github.com/NotAwesome2/MCGalaxy-CustomModels/releases/tag/v1.4.2
 
     Recommended setup (optional, but better if you do):

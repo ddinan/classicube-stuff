@@ -3,7 +3,7 @@
   
   PLEASE NOTE:
 
-  This plugin requires my VenkLib plugin. Install it from here: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/VenkLib.cs.
+  This plugin requires my VenkLib plugin. Install it from here: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/VenkLib.cs.
 
   1. PING MAY AFFECT PVP.
   2. THE CODE (╫) IS USED FOR THE HALF-HEART EMOJI, YOU MAY NEED TO CHANGE THIS.
@@ -36,10 +36,10 @@
   1. Type /map motd +hunger
   
   IF YOU WANT TO SHOW THE BLOCK YOU'RE HOLDING TO OTHER PLAYERS:
-  1. Download my HoldBlocks plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
+  1. Download my HoldBlocks plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
 
   IF YOU WANT MOB INSTRUCTIONS:
-  1. Download my MobAI plugin: https://github.com/derekdinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
+  1. Download my MobAI plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
