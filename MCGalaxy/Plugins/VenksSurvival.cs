@@ -196,6 +196,7 @@ namespace MCGalaxy
 
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
+            OnPlayerDeathEvent.Register(HandlePlayerDeath, Priority.High);
             OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
@@ -205,7 +206,7 @@ namespace MCGalaxy
             if (Config.Hunger) Server.MainScheduler.QueueRepeat(HandleHunger, null, TimeSpan.FromSeconds(1));
             if (Config.Regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
 
-            Server.MainScheduler.QueueRepeat(HandleGUI, null, TimeSpan.FromSeconds(1));
+            Server.MainScheduler.QueueRepeat(HandleGUI, null, TimeSpan.FromMilliseconds(50));
 
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
@@ -245,6 +246,7 @@ namespace MCGalaxy
             // Unload events
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
+            OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
             OnGettingMotdEvent.Unregister(HandleGettingMotd);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
@@ -399,6 +401,8 @@ namespace MCGalaxy
             Player[] online = PlayerInfo.Online.Items;
             foreach (Player p in online)
             {
+                if (p.Extras.GetBoolean("SURVIVAL_HIDE_HUD")) continue;
+
                 if (maplist.Contains(p.level.name))
                 {
                     BlockID block = p.GetHeldBlock();
@@ -422,9 +426,20 @@ namespace MCGalaxy
                     p.SendCpeMessage(CpeMessageType.BottomRight3, "%a" + held + " %8| %7x" + amount);
                     p.SendCpeMessage(CpeMessageType.BottomRight2, "%f╒ %720 %bo %7" + p.Extras.GetInt("DROWNING") + " %f▀ %7" + hunger);
 
-                    // Health is handled with actions, not time so we don't need to draw that here
+                    // Health is typically handled in this plugin but we need to show this for support in other plugins
+                    p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(p.Extras.GetInt("SURVIVAL_HEALTH")));
                 }
             }
+        }
+
+        void HandlePlayerDeath(Player p, BlockID deathblock)
+        {
+            // Reset variables upon death
+            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
+            p.Extras["HUNGER"] = 1000;
+            p.Extras["DROWNING"] = 20;
+
+            if (maplist.Contains(p.level.name)) p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
         }
 
         #endregion
@@ -480,13 +495,6 @@ namespace MCGalaxy
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
 
             if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
-
-            // Reset variables upon death
-            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
-            p.Extras["HUNGER"] = 1000;
-            p.Extras["DROWNING"] = 20;
-
-            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
         }
 
         void HandleDrown(SchedulerTask task)
@@ -1247,119 +1255,116 @@ namespace MCGalaxy
                     if (action != MouseAction.Pressed) return;
                     if (entity != Entities.SelfID && !ClickOnPlayer(p, entity, button)) return;
 
-                    int placeholder = 1;
-                    if (placeholder == 1)
+                    #region PvP code
+
+                    curpid = -1;
+                    for (int yi = 0; yi < 100; yi++)
                     {
-                        #region PvP code
-                        curpid = -1;
-                        for (int yi = 0; yi < 100; yi++)
+                        if (players[yi, 0] == p.truename)
                         {
-                            if (players[yi, 0] == p.truename)
-                            {
-                                curpid = yi;
-                            }
+                            curpid = yi;
                         }
+                    }
 
-                        int s = DateTime.Now.Second;
-                        int ms = DateTime.Now.Millisecond;
-                        if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
+                    int s = DateTime.Now.Second;
+                    int ms = DateTime.Now.Millisecond;
+                    if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
+                    {
+                        Player[] online = PlayerInfo.Online.Items;
+                        foreach (Player pl in online)
                         {
-                            Player[] online = PlayerInfo.Online.Items;
-                            foreach (Player pl in online)
+                            if (pl.EntityID == entity)
                             {
-                                if (pl.EntityID == entity)
+                                for (int i = 0; i < 100; i++)
                                 {
-                                    for (int i = 0; i < 100; i++)
+                                    if (players[i, 0] == pl.name)
                                     {
-                                        if (players[i, 0] == pl.name)
+                                        if (pl.invincible) return;
+                                        // Check if they can kill players, as determined by gamemode plugins
+                                        bool canKill = Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+                                        if (!canKill)
                                         {
-                                            if (pl.invincible) return;
-                                            // Check if they can kill players, as determined by gamemode plugins
-                                            bool canKill = Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
-                                            if (!canKill)
+                                            p.Message("You cannot kill people.");
+                                            return;
+                                        }
+
+                                        // If both players are not in safezones
+                                        if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
+                                        {
+                                            if (p.Game.Referee) return;
+                                            if (pl.Game.Referee) return;
+                                            if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
+
+                                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+
+                                            BlockID b = p.GetHeldBlock();
+                                            string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
+                                            //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
+
+                                            if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] == "0")
                                             {
-                                                p.Message("You cannot kill people.");
-                                                return;
-                                            }
+                                                // Calculate damage from weapon
+                                                int damage = 1;
 
-                                            // If both players are not in safezones
-                                            if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
-                                            {
-                                                if (p.Game.Referee) return;
-                                                if (pl.Game.Referee) return;
-                                                if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
+                                                if (weaponstats[0] != "0") damage = Int32.Parse(weaponstats[1]);
 
-                                                int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+                                                DoDamage(p, 1, "pvp");
 
-                                                BlockID b = p.GetHeldBlock();
-                                                string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                                                //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
+                                                if (health > 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
 
-                                                if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] != "0")
+                                                // If player killed them
+
+                                                if (health <= 0)
                                                 {
-                                                    // Calculate damage from weapon
-                                                    int damage = 1;
+                                                    string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
+                                                    pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
+                                                    pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
+                                                    pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
+                                                                                  // Use string killer = p.Extras.GetInt("KILLER") to get the killer
 
-                                                    if (weaponstats[0] != "0") damage = Int32.Parse(weaponstats[1]);
+                                                    KillPlayer(p, "player");
 
-                                                    DoDamage(p, 1, "pvp");
-
-                                                    if (health > 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
-
-                                                    // If player killed them
-
-                                                    if (health <= 0)
+                                                    if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                     {
-                                                        string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
-                                                        pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
-                                                        pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
-                                                        pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
-                                                                                      // Use string killer = p.Extras.GetInt("KILLER") to get the killer
-
-                                                        KillPlayer(p, "player");
-
-                                                        if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
+                                                        if (pl.money > Config.Bounty - 1)
                                                         {
-                                                            if (pl.money > Config.Bounty - 1)
+                                                            p.Message("You stole " + Config.Bounty + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
+                                                            pl.Message(p.ColoredName + " %Sstole " + Config.Bounty + " " + Server.Config.Currency + " from you.");
+                                                            p.SetMoney(p.money + Config.Bounty);
+                                                            pl.SetMoney(pl.money - Config.Bounty);
+
+                                                            MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
+                                                            if (bounty != null)
                                                             {
-                                                                p.Message("You stole " + Config.Bounty + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-                                                                pl.Message(p.ColoredName + " %Sstole " + Config.Bounty + " " + Server.Config.Currency + " from you.");
-                                                                p.SetMoney(p.money + Config.Bounty);
-                                                                pl.SetMoney(pl.money - Config.Bounty);
+                                                                ZSGame.Instance.Bounties.Remove(bounty);
+                                                                Player setter = PlayerInfo.FindExact(bounty.Origin);
 
-                                                                MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
-                                                                if (bounty != null)
+                                                                if (setter == null)
                                                                 {
-                                                                    ZSGame.Instance.Bounties.Remove(bounty);
-                                                                    Player setter = PlayerInfo.FindExact(bounty.Origin);
-
-                                                                    if (setter == null)
-                                                                    {
-                                                                        p.Message("Cannot collect the bounty, as the player who set it is offline.");
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" + bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
-                                                                        p.SetMoney(p.money + bounty.Amount);
-                                                                    }
+                                                                    p.Message("Cannot collect the bounty, as the player who set it is offline.");
+                                                                }
+                                                                else
+                                                                {
+                                                                    p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" + bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
+                                                                    p.SetMoney(p.money + bounty.Amount);
                                                                 }
                                                             }
                                                         }
                                                     }
                                                 }
-                                                else
-                                                {
-                                                    p.Message("You do not own this weapon.");
-                                                    return;
-                                                }
                                             }
                                             else
                                             {
-                                                p.Message("You cannot hurt people in a safe zone.");
+                                                p.Message("You do not own this weapon.");
                                                 return;
                                             }
-                                            players[curpid, 2] = DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
                                         }
+                                        else
+                                        {
+                                            p.Message("You cannot hurt people in a safe zone.");
+                                            return;
+                                        }
+                                        players[curpid, 2] = DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
                                     }
                                 }
                             }
@@ -1382,6 +1387,7 @@ namespace MCGalaxy
                 float reachSq = p.ReachDistance * p.ReachDistance;
                 // Don't allow clicking on players further away than their reach distance
                 if (delta.LengthSquared > (reachSq + 1)) return false;
+
                 curpid = -1;
                 for (int yi = 0; yi < 100; yi++)
                 {
@@ -1405,7 +1411,7 @@ namespace MCGalaxy
 
                         BlockID b = p.GetHeldBlock();
                         string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                        if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) || weaponstats[0] == "0") return false;
+                        if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
 
                         PushPlayer(p, pl);
                     }
@@ -2756,14 +2762,10 @@ namespace MCGalaxy
             SchedulerTask task = new SchedulerTask(DropItem.DropItemCallback, itemData, TimeSpan.FromMilliseconds(50), true);
             p.CriticalTasks.Add(task);
 
-
-
             // Adjust inventory
 
             Command.Find("SilentHold").Use(p, "air");
             p.lastCMD = "Secret";
-
-
         }
 
         public override void Help(Player p)
