@@ -33,10 +33,21 @@ namespace Core
 
             NbtReader reader = new NbtReader();
             Dictionary<string, NbtTag> tags;
-            var req = System.Net.WebRequest.Create(args[0]);
-            using (Stream stream = req.GetResponse().GetResponseStream())
+
+            if (args[0].StartsWith("."))
             {
+                Stream stream = File.OpenRead(args[0]);
                 tags = reader.Load(stream);
+            }
+
+            else
+            {
+
+                var req = System.Net.WebRequest.Create(args[0]);
+                using (Stream stream = req.GetResponse().GetResponseStream())
+                {
+                    tags = reader.Load(stream);
+                }
             }
 
             MapConverter conv = new MapConverter();
@@ -525,7 +536,7 @@ namespace Core
                 All(Block.Bookshelf);
                 All(Block.MossyRocks);
                 All(Block.Obsidian);
-                All(Block.Magma); // NOT torch
+                All(707); // Torch
                 All(Block.Fire);
                 All(Block.Magma); // NOT mob_spawner
                 All(Block.Wood); // NOT oak_stairs
@@ -540,19 +551,50 @@ namespace Core
                 All(719); // NOT lit_furnace
                 All(Block.Magma); // NOT standing_sign
                 All(460); // Door (bottom)
+                lookup[64, 0] = 263;
+                lookup[64, 1] = 460; // ?
+                lookup[64, 2] = 460; // Door bottom
+                lookup[64, 3] = Block.Magma; // ?
+                lookup[64, 4] = Block.Magma; // ?
+                lookup[64, 5] = Block.Magma; // ?
+                lookup[64, 6] = Block.Magma; // ?
+                lookup[64, 7] = Block.Magma; // ?
+                lookup[64, 8] = 461; // Door top
+                lookup[64, 9] = Block.Magma; // ?
+                lookup[64, 10] = Block.Magma; // ?
+                lookup[64, 11] = Block.Magma; // ?
+                lookup[64, 12] = Block.Magma; // ?
+                lookup[64, 13] = Block.Magma; // ?
+                lookup[64, 14] = Block.Magma; // ?
+                lookup[64, 15] = Block.Magma; // ?
+
                 All(433); // Ladder-N since no dir blocks
+                lookup[65, 0] = 263;
+                lookup[65, 1] = Block.Magma; // ?
+                lookup[65, 2] = 440; // South
+                lookup[65, 3] = 433; // North
+                lookup[65, 4] = 442; // East
+                lookup[65, 5] = 441; // West
+
                 All(666); // Rail-NS since no dir blocks
                 All(Block.Cobblestone); // NOT cobblestone_stairs
-                All(Block.Magma); // NOT wall_sign
-                All(145); // NOT lever
-                All(145); // NOT stone_pressure_plate
-                All(145); // NOT iron_door
-                All(145); // NOT wood_pressure_plate
+                All(605); // NOT wall_sign
+                lookup[68, 0] = Block.Magma; // ?
+                lookup[68, 1] = Block.Magma; // ?
+                lookup[68, 2] = 606; // South
+                lookup[68, 3] = 605; // North
+                lookup[68, 4] = 608; // East
+                lookup[68, 5] = 607; // West
+
+                All(Block.Air); // NOT lever
+                All(Block.Air); // NOT stone_pressure_plate
+                All(Block.Iron); // NOT iron_door
+                All(Block.Air); // NOT wood_pressure_plate
                 All(141); // Redstone ore
                 All(141); // Lit redstone ore
                 All(145); // NOT unlit_redtone_torch
-                All(145); // NOT redstone_torch
-                All(Block.Magma); // NOT stone_button
+                All(Block.Air); // NOT redstone_torch
+                All(Block.Air); // NOT stone_button
                 All(Block.Snow);
                 All(Block.Ice);
                 All(68); // Snow block
@@ -592,17 +634,17 @@ namespace Core
 
                 All(263); // Trapdoor-N since no dir blocks
                 lookup[96, 0] = 263;
-                lookup[96, 1] = Block.Magma; // ?
-                lookup[96, 2] = Block.Magma;// ?
-                lookup[96, 3] = Block.Magma; // ?
+                lookup[96, 1] = Block.Air; // ?
+                lookup[96, 2] = Block.Air;// ?
+                lookup[96, 3] = Block.Air; // ?
                 lookup[96, 4] = 262; // South
                 lookup[96, 5] = 263; // North, top
                 lookup[96, 6] = 260; // East
                 lookup[96, 7] = 261; // West
-                lookup[96, 8] = Block.Magma; // ?
-                lookup[96, 9] = Block.Magma; // ?
-                lookup[96, 10] = Block.Magma; // ?
-                lookup[96, 11] = Block.Magma; // ?
+                lookup[96, 8] = Block.Air; // ?
+                lookup[96, 9] = Block.Air; // ?
+                lookup[96, 10] = Block.Air; // ?
+                lookup[96, 11] = Block.Air; // ?
                 lookup[96, 12] = 262; // South, bottom
                 lookup[96, 13] = 263; // North, bottom
                 lookup[96, 14] = 260; // East bottom
@@ -685,7 +727,7 @@ namespace Core
                 All(115); // Carrot
                 All(116); // Potato
                 All(Block.Air); // NOT Button
-                All(Block.Magma); // NOT Head
+                All(Block.Air); // NOT Head
                 All(Block.Iron); // Not Anvil
                 All(231); // Chest-n
                 All(53); // NOT gold plate
@@ -799,9 +841,11 @@ namespace Core
                 lookup[179, 1] = 219;
                 lookup[179, 2] = 219;
 
-                All(219);
-                All(219);
-                All(535);
+                All(219); // NOT smooth red sandstone
+                All(219); // NOT double red sandstone
+                All(535); // NOT red sandstone slab
+
+                // Not fences
 
                 All(51);
                 All(51);
@@ -814,11 +858,98 @@ namespace Core
                 All(51);
                 All(51);
 
+                // Doors
+
                 All(460);
+                lookup[193, 0] = 263;
+                lookup[193, 1] = 460; // ?
+                lookup[193, 2] = 460; // Door bottom
+                lookup[193, 3] = Block.Magma; // ?
+                lookup[193, 4] = Block.Magma; // ?
+                lookup[193, 5] = Block.Magma; // ?
+                lookup[193, 6] = Block.Magma; // ?
+                lookup[193, 7] = Block.Magma; // ?
+                lookup[193, 8] = 461; // Door top
+                lookup[193, 9] = Block.Magma; // ?
+                lookup[193, 10] = Block.Magma; // ?
+                lookup[193, 11] = Block.Magma; // ?
+                lookup[193, 12] = Block.Magma; // ?
+                lookup[193, 13] = Block.Magma; // ?
+                lookup[193, 14] = Block.Magma; // ?
+                lookup[193, 15] = Block.Magma; // ?
+
                 All(460);
+                lookup[194, 0] = 263;
+                lookup[194, 1] = 460; // ?
+                lookup[194, 2] = 460; // Door bottom
+                lookup[194, 3] = Block.Magma; // ?
+                lookup[194, 4] = Block.Magma; // ?
+                lookup[194, 5] = Block.Magma; // ?
+                lookup[194, 6] = Block.Magma; // ?
+                lookup[194, 7] = Block.Magma; // ?
+                lookup[194, 8] = 461; // Door top
+                lookup[194, 9] = Block.Magma; // ?
+                lookup[194, 10] = Block.Magma; // ?
+                lookup[194, 11] = Block.Magma; // ?
+                lookup[194, 12] = Block.Magma; // ?
+                lookup[194, 13] = Block.Magma; // ?
+                lookup[194, 14] = Block.Magma; // ?
+                lookup[194, 15] = Block.Magma; // ?
+
                 All(460);
+                lookup[195, 0] = 263;
+                lookup[195, 1] = 460; // ?
+                lookup[195, 2] = 460; // Door bottom
+                lookup[195, 3] = Block.Magma; // ?
+                lookup[195, 4] = Block.Magma; // ?
+                lookup[195, 5] = Block.Magma; // ?
+                lookup[195, 6] = Block.Magma; // ?
+                lookup[195, 7] = Block.Magma; // ?
+                lookup[195, 8] = 461; // Door top
+                lookup[195, 9] = Block.Magma; // ?
+                lookup[195, 10] = Block.Magma; // ?
+                lookup[195, 11] = Block.Magma; // ?
+                lookup[195, 12] = Block.Magma; // ?
+                lookup[195, 13] = Block.Magma; // ?
+                lookup[195, 14] = Block.Magma; // ?
+                lookup[195, 15] = Block.Magma; // ?
+
                 All(460);
+                lookup[196, 0] = 263;
+                lookup[196, 1] = 460; // ?
+                lookup[196, 2] = 460; // Door bottom
+                lookup[196, 3] = Block.Magma; // ?
+                lookup[196, 4] = Block.Magma; // ?
+                lookup[196, 5] = Block.Magma; // ?
+                lookup[196, 6] = Block.Magma; // ?
+                lookup[196, 7] = Block.Magma; // ?
+                lookup[196, 8] = 461; // Door top
+                lookup[196, 9] = Block.Magma; // ?
+                lookup[196, 10] = Block.Magma; // ?
+                lookup[196, 11] = Block.Magma; // ?
+                lookup[196, 12] = Block.Magma; // ?
+                lookup[196, 13] = Block.Magma; // ?
+                lookup[196, 14] = Block.Magma; // ?
+                lookup[196, 15] = Block.Magma; // ?
+
                 All(460);
+                lookup[197, 0] = 263;
+                lookup[197, 1] = 460; // ?
+                lookup[197, 2] = 460; // Door bottom
+                lookup[197, 3] = Block.Magma; // ?
+                lookup[197, 4] = Block.Magma; // ?
+                lookup[197, 5] = Block.Magma; // ?
+                lookup[197, 6] = Block.Magma; // ?
+                lookup[197, 7] = Block.Magma; // ?
+                lookup[197, 8] = 461; // Door top
+                lookup[197, 9] = Block.Magma; // ?
+                lookup[197, 10] = Block.Magma; // ?
+                lookup[197, 11] = Block.Magma; // ?
+                lookup[197, 12] = Block.Magma; // ?
+                lookup[197, 13] = Block.Magma; // ?
+                lookup[197, 14] = Block.Magma; // ?
+                lookup[197, 15] = Block.Magma; // ?
+
                 All(464);
                 All(Block.Purple);
                 All(Block.Purple);
