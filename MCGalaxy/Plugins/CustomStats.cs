@@ -20,7 +20,6 @@ namespace Core
 
             TopStat.Stats.Add(stat);
             TopStat.Stats.Add(stat);
-
         }
 
         public override void Unload(bool shutdown)
