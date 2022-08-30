@@ -1,4 +1,4 @@
-//reference System.Core.dll
+﻿//reference System.Core.dll
 
 /* NOTE:
  	- You need to replace all "NameOfGamemode" strings with the name of your gamemode. E.g "SkyWars", "TNTRun" etc
@@ -26,7 +26,6 @@ using BlockID = System.UInt16;
 
 namespace MCGalaxy.Games
 {
-
     public class NOGMapConfig
     {
         [ConfigVec3("nog-spawn", null)]
@@ -156,6 +155,7 @@ namespace MCGalaxy.Games
 
         public override void PlayerLeftGame(Player p)
         {
+            p.Extras.Remove("SURVIVAL_HIDE_HUD");
             // "kill" player if they leave server or change map
             if (!Alive.Contains(p)) return;
             Alive.Remove(p);
@@ -291,8 +291,6 @@ namespace MCGalaxy.Games
 
             foreach (Player pl in players)
             {
-                Entities.UpdateEntityProp(pl, EntityProp.RotX, 0);
-                Entities.UpdateEntityProp(pl, EntityProp.RotZ, 0);
                 Alive.Add(pl); // Adds them to the alive list
             }
 
@@ -304,10 +302,9 @@ namespace MCGalaxy.Games
             {
                 if (pl.level == Map)
                 {
-                    if (pl.Game.Referee) continue;
+                    pl.Extras.Remove("SURVIVAL_HIDE_HUD");
 
-                    Entities.UpdateEntityProp(pl, EntityProp.RotX, 0);
-                    Entities.UpdateEntityProp(pl, EntityProp.RotZ, 0);
+                    if (pl.Game.Referee) continue;
 
                     Alive.Add(pl);
 
@@ -379,6 +376,7 @@ namespace MCGalaxy.Games
             foreach (Player pl in players)
             {
                 if (pl.level != Instance.Map) continue;
+                pl.Extras["SURVIVAL_HIDE_HUD"] = true;
 
                 NOGData data = Get(pl);
 

@@ -480,7 +480,7 @@ namespace MCGalaxy
 
             p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(health));
 
-            if (health <= 1) KillPlayer(p, type);
+            if (health <= 0) KillPlayer(p, type);
 
             else if (p.appName.CaselessContains("cef"))
             {
@@ -493,6 +493,7 @@ namespace MCGalaxy
         {
             if (type == "drown") p.HandleDeath(Block.Water);
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
+            else p.HandleDeath(Block.Cobblestone);
 
             if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
         }
@@ -1295,7 +1296,7 @@ namespace MCGalaxy
                                             if (pl.Game.Referee) return;
                                             if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
 
-                                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+                                            int health = pl.Extras.GetInt("SURVIVAL_HEALTH");
 
                                             BlockID b = p.GetHeldBlock();
                                             string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
@@ -1308,9 +1309,9 @@ namespace MCGalaxy
 
                                                 if (weaponstats[0] != "0") damage = Int32.Parse(weaponstats[1]);
 
-                                                DoDamage(p, 1, "pvp");
+                                                DoDamage(pl, 1, "pvp");
 
-                                                if (health > 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
+                                                if (health >= 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
 
                                                 // If player killed them
 
@@ -1321,8 +1322,6 @@ namespace MCGalaxy
                                                     pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
                                                     pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
                                                                                   // Use string killer = p.Extras.GetInt("KILLER") to get the killer
-
-                                                    KillPlayer(p, "player");
 
                                                     if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
                                                     {
@@ -1832,7 +1831,7 @@ namespace MCGalaxy
 
         static Vec3U16 Round(Vec3F32 v)
         {
-            return new Vec3U16((ushort)Math.Round(v.X), (ushort)Math.Round(v.Y), (ushort)Math.Round(v.Z));
+            unchecked { return new Vec3U16((ushort)Math.Round(v.X), (ushort)Math.Round(v.Y), (ushort)Math.Round(v.Z)); }
         }
 
         public static DropItemData MakeArgs(Player p, Vec3F32 dir, BlockID block)
