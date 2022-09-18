@@ -1,4 +1,4 @@
-﻿//reference System.Core.dll
+//reference System.Core.dll
 
 /* NOTE:
  	- You need to replace all "NameOfGamemode" strings with the name of your gamemode. E.g "SkyWars", "TNTRun" etc
@@ -281,7 +281,7 @@ namespace MCGalaxy.Games
             NOGGame.Instance.Map.Config.Buildable = false;
             Map.UpdateBlockPermissions();
 
-            DoRoundCountdown(countdownTime); // Countdown to check if there are enough players before starting round
+            DoRoundCountdown(countdownTimer); // Countdown to check if there are enough players before starting round
             if (!Running) return;
 
             UpdateMapConfig();
