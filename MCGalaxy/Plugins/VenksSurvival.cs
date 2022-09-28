@@ -107,9 +107,6 @@ namespace MCGalaxy
             [ConfigBool("mobs", "Survival", false)]
             public static bool Mobs = false;
 
-            [ConfigBool("use-goodly-effects", "Extra", false)]
-            public static bool UseGoodlyEffects = false;
-
             [ConfigInt("max-health", "Survival", 20)]
             public static int MaxHealth = 20;
 
@@ -118,6 +115,12 @@ namespace MCGalaxy
 
             [ConfigString("secret-code", "Extra", "unused")]
             public static string SecretCode = "unused";
+
+            [ConfigBool("use-goodly-effects", "Extra", false)]
+            public static bool UseGoodlyEffects = false;
+
+            [ConfigString("hit-particle", "Extra", "pvp")]
+            public static string HitParticle = "pvp";
 
             static ConfigElement[] cfg;
             public void Load()
@@ -169,7 +172,6 @@ namespace MCGalaxy
 
         public static int curpid = -1;
         public static List<string> maplist = new List<string>();
-        public static string[,] players = new string[100, 3];
         public static string[,] weapons = new string[255, 3];
         public static string[,] tools = new string[255, 4];
         public static string[,] blocks = new string[255, 3];
@@ -218,26 +220,12 @@ namespace MCGalaxy
             Command.Register(new CmdPickupBlock());
             Command.Register(new CmdInventory());
 
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player p in online)
-            {
-                if (maplist.Contains(p.level.name))
-                {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        if (players[i, 0] == null)
-                        {
-                            players[i, 0] = p.truename;
-                            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
-                            players[i, 2] = "30000";
-                            p.Extras["HUNGER"] = 1000;
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
-                            break;
-                        }
-                    }
+            Player[] players = PlayerInfo.Online.Items;
 
-                    p.SendCpeMessage(CpeMessageType.BottomRight1, "♥♥♥♥♥♥♥♥♥♥");
-                }
+            foreach (Player pl in players)
+            {
+                if (!maplist.Contains(pl.level.name)) continue;
+                ResetPlayerState(pl);
             }
         }
 
@@ -269,6 +257,21 @@ namespace MCGalaxy
             Server.MainScheduler.Cancel(hungerTask);
             Server.MainScheduler.Cancel(regenTask);
         }
+
+        /// <summary>
+        /// Resets the specified player's variables. Commonly used for player deaths or when a player joins a level.
+        /// </summary>
+        /// <param name="p"></param>
+
+        public static void ResetPlayerState(Player p)
+        {
+            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
+            p.Extras["HUNGER"] = 1000;
+            p.Extras["DROWNING"] = 20;
+            p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
+        }
+
+        #region Database management
 
         ColumnDesc[] createPotions = new ColumnDesc[] {
             new ColumnDesc("Name", ColumnType.VarChar, 16),
@@ -371,6 +374,8 @@ namespace MCGalaxy
             Database.CreateTable("Chests", createChests);
         }
 
+        #endregion
+
         void loadMaps()
         {
             if (File.Exists(Config.Path + "maps.txt"))
@@ -398,17 +403,18 @@ namespace MCGalaxy
         {
             guiTask = task;
 
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player p in online)
+            Player[] players = PlayerInfo.Online.Items;
+
+            foreach (Player pl in players)
             {
-                if (p.Extras.GetBoolean("SURVIVAL_HIDE_HUD")) continue;
+                if (pl.Extras.GetBoolean("SURVIVAL_HIDE_HUD")) continue;
 
-                if (maplist.Contains(p.level.name))
+                if (maplist.Contains(pl.level.name))
                 {
-                    BlockID block = p.GetHeldBlock();
-                    string held = Block.GetName(p, block);
+                    BlockID block = pl.GetHeldBlock();
+                    string held = Block.GetName(pl, block);
 
-                    List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+                    List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", pl.truename);
 
                     int column = 0;
                     int amount = 0;
@@ -421,25 +427,21 @@ namespace MCGalaxy
                         else amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
                     }
 
-                    decimal hunger = Math.Floor((decimal)(p.Extras.GetInt("HUNGER") / 50));
+                    decimal hunger = Math.Floor((decimal)(pl.Extras.GetInt("HUNGER") / 50));
 
-                    p.SendCpeMessage(CpeMessageType.BottomRight3, "%a" + held + " %8| %7x" + amount);
-                    p.SendCpeMessage(CpeMessageType.BottomRight2, "%f╒ %720 %bo %7" + p.Extras.GetInt("DROWNING") + " %f▀ %7" + hunger);
+                    pl.SendCpeMessage(CpeMessageType.BottomRight3, "%a" + held + " %8| %7x" + amount);
+                    pl.SendCpeMessage(CpeMessageType.BottomRight2, "%f╒ %720 %bo %7" + pl.Extras.GetInt("DROWNING") + " %f▀ %7" + hunger);
 
                     // Health is typically handled in this plugin but we need to show this for support in other plugins
-                    p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(p.Extras.GetInt("SURVIVAL_HEALTH")));
+                    pl.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(pl.Extras.GetInt("SURVIVAL_HEALTH")));
                 }
             }
         }
 
         void HandlePlayerDeath(Player p, BlockID deathblock)
         {
-            // Reset variables upon death
-            p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
-            p.Extras["HUNGER"] = 1000;
-            p.Extras["DROWNING"] = 20;
-
-            if (maplist.Contains(p.level.name)) p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(20));
+            if (!maplist.Contains(p.level.name)) return;
+            ResetPlayerState(p);
         }
 
         #endregion
@@ -504,38 +506,38 @@ namespace MCGalaxy
 
             if (!Config.SurvivalDamage) return;
 
-            Player[] online = PlayerInfo.Online.Items;
+            Player[] players = PlayerInfo.Online.Items;
 
-            foreach (Player p in online)
+            foreach (Player pl in players)
             {
-                if (maplist.Contains(p.level.name))
+                if (maplist.Contains(pl.level.name))
                 {
-                    if (p.invincible) continue;
+                    if (pl.invincible) continue;
 
-                    ushort x = (ushort)(p.Pos.X / 32);
-                    ushort y = (ushort)((p.Pos.Y - Entities.CharacterHeight) / 32);
-                    ushort y2 = (ushort)(((p.Pos.Y - Entities.CharacterHeight) / 32) + 1);
-                    ushort z = (ushort)(p.Pos.Z / 32);
+                    ushort x = (ushort)(pl.Pos.X / 32);
+                    ushort y = (ushort)((pl.Pos.Y - Entities.CharacterHeight) / 32);
+                    ushort y2 = (ushort)(((pl.Pos.Y - Entities.CharacterHeight) / 32) + 1);
+                    ushort z = (ushort)(pl.Pos.Z / 32);
 
-                    BlockID block = p.level.GetBlock((ushort)x, ((ushort)y), (ushort)z);
-                    BlockID block2 = p.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
+                    BlockID block = pl.level.GetBlock((ushort)x, ((ushort)y), (ushort)z);
+                    BlockID block2 = pl.level.GetBlock((ushort)x, ((ushort)y2), (ushort)z);
 
-                    string body = Block.GetName(p, block);
-                    string head = Block.GetName(p, block2);
+                    string body = Block.GetName(pl, block);
+                    string head = Block.GetName(pl, block2);
 
                     if (body == "Water" && head == "Water")
                     {
-                        int number = p.Extras.GetInt("DROWNING");
-                        p.Extras["DROWNING"] = number - 1;
-                        int air = p.Extras.GetInt("DROWNING");
+                        int number = pl.Extras.GetInt("DROWNING");
+                        pl.Extras["DROWNING"] = number - 1;
+                        int air = pl.Extras.GetInt("DROWNING");
                         // (10 - number) + 1)
 
                         // If player is out of air, start doing damage
-                        if (air < 0) DoDamage(p, 1, "drown");
+                        if (air < 0) DoDamage(pl, 1, "drown");
                     }
                     else
                     {
-                        p.Extras["DROWNING"] = 20;
+                        pl.Extras["DROWNING"] = 20;
                     }
                 }
             }
@@ -549,25 +551,19 @@ namespace MCGalaxy
         {
             regenTask = task;
 
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player p in online)
+            Player[] players = PlayerInfo.Online.Items;
+
+            foreach (Player pl in players)
             {
-                if (maplist.Contains(p.level.name))
-                {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        if (players[i, 0] == p.truename)
-                        {
-                            int hunger = p.Extras.GetInt("HUNGER");
-                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+                if (!maplist.Contains(pl.level.name)) continue;
 
-                            if (health == Config.MaxHealth) continue; // No need to regenerate health if player is already at max health
-                            if (Math.Floor((decimal)(hunger / 50)) < 18) continue; // Only regenerate health if player has 18+ hunger points
+                int hunger = pl.Extras.GetInt("HUNGER");
+                int health = pl.Extras.GetInt("SURVIVAL_HEALTH");
 
-                            p.Extras["SURVIVAL_HEALTH"] = health + 1;
-                        }
-                    }
-                }
+                if (health == Config.MaxHealth) continue; // No need to regenerate health if player is already at max health
+                if (Math.Floor((decimal)(hunger / 50)) < 18) continue; // Only regenerate health if player has 18+ hunger points
+
+                pl.Extras["SURVIVAL_HEALTH"] = health + 1;
             }
         }
 
@@ -580,30 +576,27 @@ namespace MCGalaxy
             hungerTask = task;
 
             if (!Config.SurvivalDamage || !Config.Hunger) return;
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player p in online)
-            {
-                if (maplist.Contains(p.level.name) && p.level.Config.MOTD.ToLower().Contains("+hunger"))
-                {
-                    if (p.invincible) continue;
 
-                    int hunger = p.Extras.GetInt("HUNGER");
+            Player[] players = PlayerInfo.Online.Items;
+
+            foreach (Player pl in players)
+            {
+                if (maplist.Contains(pl.level.name) && pl.level.Config.MOTD.ToLower().Contains("+hunger"))
+                {
+                    if (pl.invincible) continue;
+
+                    int hunger = pl.Extras.GetInt("HUNGER");
 
                     // Start depleting health if hunger is 0 (this isn't possible currently since hunger stops at 6)
                     if (hunger == 0)
                     {
-                        for (int i = 0; i < 100; i++)
-                        {
-                            if (players[i, 0] == p.truename)
-                            {
-                                int health = p.Extras.GetInt("SURVIVAL_HEALTH");
-                                // If player has 5 or less hearts left, don't bother doing damage
-                                if (health <= 10) continue;
+                        int health = pl.Extras.GetInt("SURVIVAL_HEALTH");
 
-                                if (p.appName.CaselessContains("cef")) p.Message("cef resume -n hit"); // Play hit sound effect
-                                p.Extras["SURVIVAL_HEALTH"] = health - 1;
-                            }
-                        }
+                        // If player has 5 or less hearts left, don't bother doing damage
+                        if (health <= 10) continue;
+
+                        if (pl.appName.CaselessContains("cef")) pl.Message("cef resume -n hit"); // Play hit sound effect
+                        pl.Extras["SURVIVAL_HEALTH"] = health - 1;
                     }
                 }
             }
@@ -1249,204 +1242,130 @@ namespace MCGalaxy
 
         void HandlePlayerClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
         {
+            if (!maplist.Contains(p.level.name)) return;
+
             if (button == MouseButton.Left)
             {
-                if (maplist.Contains(p.level.name))
+                if (action != MouseAction.Pressed) return;
+
+                Player victim = null; // If not null, the player that is being hit
+
+                Player[] players = PlayerInfo.Online.Items;
+
+                foreach (Player pl in players)
                 {
-                    if (action != MouseAction.Pressed) return;
-                    if (entity != Entities.SelfID && !ClickOnPlayer(p, entity, button)) return;
+                    // Clicked on a player
 
-                    #region PvP code
-
-                    curpid = -1;
-                    for (int yi = 0; yi < 100; yi++)
+                    if (pl.EntityID == entity)
                     {
-                        if (players[yi, 0] == p.truename)
-                        {
-                            curpid = yi;
-                        }
+                        victim = pl;
+                        break;
+                    }
+                }
+
+                // If the player didn't click on anyone, start a cooldown
+
+                if (victim == null)
+                {
+                    p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450).ToString();
+                }
+
+                else
+                {
+                    // If the player doesn't have an active cooldown, hit the victim
+
+                    if (!p.Extras.Contains("PVP_HIT_COOLDOWN"))
+                    {
+                        if (CanHitPlayer(p, victim)) DoHit(p, victim);
                     }
 
-                    int s = DateTime.Now.Second;
-                    int ms = DateTime.Now.Millisecond;
-                    if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
+                    else
                     {
-                        Player[] online = PlayerInfo.Online.Items;
-                        foreach (Player pl in online)
+                        DateTime cooldown = DateTime.Parse(p.Extras.GetString("PVP_HIT_COOLDOWN"));
+
+                        // Only hit if player doesn't have an active cooldown
+
+                        if (cooldown <= DateTime.UtcNow)
                         {
-                            if (pl.EntityID == entity)
-                            {
-                                for (int i = 0; i < 100; i++)
-                                {
-                                    if (players[i, 0] == pl.name)
-                                    {
-                                        if (pl.invincible) return;
-                                        // Check if they can kill players, as determined by gamemode plugins
-                                        bool canKill = Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
-                                        if (!canKill)
-                                        {
-                                            p.Message("You cannot kill people.");
-                                            return;
-                                        }
-
-                                        // If both players are not in safezones
-                                        if (!inSafeZone(p, p.level.name) && !inSafeZone(pl, pl.level.name))
-                                        {
-                                            if (p.Game.Referee) return;
-                                            if (pl.Game.Referee) return;
-                                            if (p.level.Config.MOTD.ToLower().Contains("-health")) return;
-
-                                            int health = pl.Extras.GetInt("SURVIVAL_HEALTH");
-
-                                            BlockID b = p.GetHeldBlock();
-                                            string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                                            //p.Message("dmg: " + weaponstats[1] + " id: " +  b.ExtID);
-
-                                            if (p.Extras.GetBoolean("PVP_UNLOCKED_" + b) || weaponstats[0] == "0")
-                                            {
-                                                // Calculate damage from weapon
-                                                int damage = 1;
-
-                                                if (weaponstats[0] != "0") damage = Int32.Parse(weaponstats[1]);
-
-                                                DoDamage(pl, 1, "pvp");
-
-                                                if (health >= 0) p.Message("%c-" + damage + " %7(%b" + health + " %f♥ %bleft%7)");
-
-                                                // If player killed them
-
-                                                if (health <= 0)
-                                                {
-                                                    string stringweaponused = weaponstats[0] == "0" ? "." : " %Susing " + Block.GetName(p, b) + ".";
-                                                    pl.level.Message(pl.ColoredName + " %Swas killed by " + p.truename + stringweaponused);
-                                                    pl.Extras["KILLER"] = p.truename; // Support for custom gamemodes
-                                                    pl.Extras["PVP_DEAD"] = true; // Support for custom gamemodes
-                                                                                  // Use string killer = p.Extras.GetInt("KILLER") to get the killer
-
-                                                    if (Config.Economy == true && (p.ip != pl.ip || p.ip == "127.0.0.1"))
-                                                    {
-                                                        if (pl.money > Config.Bounty - 1)
-                                                        {
-                                                            p.Message("You stole " + Config.Bounty + " " + Server.Config.Currency + " %Sfrom " + pl.ColoredName + "%S.");
-                                                            pl.Message(p.ColoredName + " %Sstole " + Config.Bounty + " " + Server.Config.Currency + " from you.");
-                                                            p.SetMoney(p.money + Config.Bounty);
-                                                            pl.SetMoney(pl.money - Config.Bounty);
-
-                                                            MCGalaxy.Games.BountyData bounty = ZSGame.Instance.FindBounty(pl.name);
-                                                            if (bounty != null)
-                                                            {
-                                                                ZSGame.Instance.Bounties.Remove(bounty);
-                                                                Player setter = PlayerInfo.FindExact(bounty.Origin);
-
-                                                                if (setter == null)
-                                                                {
-                                                                    p.Message("Cannot collect the bounty, as the player who set it is offline.");
-                                                                }
-                                                                else
-                                                                {
-                                                                    p.level.Message("&c" + p.DisplayName + " %Scollected the bounty of &a" + bounty.Amount + " %S" + Server.Config.Currency + " on " + pl.ColoredName + "%S.");
-                                                                    p.SetMoney(p.money + bounty.Amount);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            else
-                                            {
-                                                p.Message("You do not own this weapon.");
-                                                return;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            p.Message("You cannot hurt people in a safe zone.");
-                                            return;
-                                        }
-                                        players[curpid, 2] = DateTime.Now.Second + "" + DateTime.Now.Millisecond + "";
-                                    }
-                                }
-                            }
+                            if (CanHitPlayer(p, victim)) DoHit(p, victim);
                         }
                     }
-
-                    #endregion
                 }
             }
         }
 
-        static bool ClickOnPlayer(Player p, byte entity, MouseButton button)
+        static bool CanHitPlayer(Player p, Player victim)
         {
-            Player[] ponline = PlayerInfo.Online.Items;
-            for (int i = 0; i < ponline.Length; i++)
-            {
-                if (ponline[i].EntityID != entity) continue;
-                Player pl = ponline[i];
-                Vec3F32 delta = p.Pos.ToVec3F32() - pl.Pos.ToVec3F32();
-                float reachSq = p.ReachDistance * p.ReachDistance;
-                // Don't allow clicking on players further away than their reach distance
-                if (delta.LengthSquared > (reachSq + 1)) return false;
+            Vec3F32 delta = p.Pos.ToVec3F32() - victim.Pos.ToVec3F32();
+            float reachSq = 9f; // 3 block reach distance
 
-                curpid = -1;
-                for (int yi = 0; yi < 100; yi++)
-                {
-                    if (players[yi, 0] == p.truename)
-                    {
-                        curpid = yi;
-                    }
-                }
+            // Don't allow clicking on victimayers further away than their reach distance
+            if (delta.LengthSquared > (reachSq + 1)) return false;
 
-                int s = DateTime.Now.Second;
-                int ms = DateTime.Now.Millisecond;
-                if (int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) > 1350 || int.Parse(s + "" + ms) - int.Parse(players[curpid, 2]) < -1350)
-                {
-                    if (button == MouseButton.Left)
-                    {
-                        // Check if they can kill players, determined by gamemode plugins
-                        bool canKill = PvP.Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
-                        if (!canKill) return false;
-                        if (p.Game.Referee || pl.Game.Referee || p.invincible || pl.invincible) return false;
-                        if (inSafeZone(p, p.level.name) || inSafeZone(pl, pl.level.name)) return false;
+            // Check if they can kill victimayers, determined by gamemode victimugins
+            bool canKill = PvP.Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
+            if (!canKill) return false;
 
-                        BlockID b = p.GetHeldBlock();
-                        string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-                        if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
+            if (p.Game.Referee || victim.Game.Referee || p.invincible || victim.invincible) return false;
+            if (inSafeZone(p, p.level.name) || inSafeZone(victim, victim.level.name)) return false;
 
-                        PushPlayer(p, pl);
-                    }
-                    return true;
-                }
-            }
-            return false;
+            BlockID b = p.GetHeldBlock();
+            string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
+            if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
+
+            // If all checks are comvictimete, return true to allow knockback and damage
+            return true;
         }
 
-        static void PushPlayer(Player p, Player pl)
+        static void PushPlayer(Player p, Player victim)
         {
             if (p.level.Config.MOTD.ToLower().Contains("-damage")) return;
 
             int srcHeight = ModelInfo.CalcEyeHeight(p);
-            int dstHeight = ModelInfo.CalcEyeHeight(pl);
-            int dx = p.Pos.X - pl.Pos.X, dy = (p.Pos.Y + srcHeight) - (pl.Pos.Y + dstHeight), dz = p.Pos.Z - pl.Pos.Z;
+            int dstHeight = ModelInfo.CalcEyeHeight(victim);
+            int dx = p.Pos.X - victim.Pos.X, dy = (p.Pos.Y + srcHeight) - (victim.Pos.Y + dstHeight), dz = p.Pos.Z - victim.Pos.Z;
+
             Vec3F32 dir = new Vec3F32(dx, dy, dz);
             if (dir.Length > 0) dir = Vec3F32.Normalise(dir);
 
-            float mult = 1 / ModelInfo.GetRawScale(pl.Model);
-            float plScale = ModelInfo.GetRawScale(pl.Model);
+            float mult = 1 / ModelInfo.GetRawScale(victim.Model);
+            float victimScale = ModelInfo.GetRawScale(victim.Model);
 
-            if (pl.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl))
+            if (victim.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl))
             {
                 // Intensity of force is in part determined by model scale
-                pl.Send(Packet.VelocityControl((-dir.X * mult) * 0.57f, 1.0117f * mult, (-dir.Z * mult) * 0.57f, 0, 1, 0));
+                victim.Send(Packet.VelocityControl((-dir.X * mult) * 0.33f, 0.5f * mult, (-dir.Z * mult) * 0.33f, 0, 1, 0));
+
+                // If GoodlyEffects is enabled, show particles whenever a player is hit
+                if (Config.UseGoodlyEffects)
+                {
+                    // Spawn effect when victim is hit
+                    Command.Find("Effect").Use(victim, Config.HitParticle + " " + (victim.Pos.X / 32) + " " + (victim.Pos.Y / 32) + " " + (victim.Pos.Z / 32) + " 0 0 0 true");
+                }
             }
             else
             {
-                p.Message("You can left and right click people to hit them if you update your client!");
+                p.Message("You can left and right click peovictime to hit them if you update your client!");
             }
+        }
+
+        void DoHit(Player p, Player victim)
+        {
+            PushPlayer(p, victim); // Knock the victim back
+
+            // TODO: Weapons
+            int damage = 1;
+            if (!p.level.Config.MOTD.CaselessContains("-damage")) DoDamage(victim, damage, "pvp");
+
+            // Activate cooldown to prevent spam clicks
+            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(300).ToString();
         }
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
         {
-            // Initialize extras
+            // Initialize extras. We're not using ResetPlayerState() here since we are resetting variables whenever the player
+            // changes levels and we don't want to show health HUD if they join a non-survival world.
+
             p.Extras["SURVIVAL_HEALTH"] = 20;
             p.Extras["HUNGER"] = 1000;
             p.Extras["DROWNING"] = 20;
@@ -1542,19 +1461,6 @@ namespace MCGalaxy
                 // Drop blocks hotkeys (del and backspace)
                 p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 211, 0, true));
                 p.Send(Packet.TextHotKey("DropBlocks", "/DropBlock◙", 14, 0, true));
-            }
-
-            for (int i = 0; i < 100; i++)
-            {
-                if (players[i, 0] == null)
-                {
-                    players[i, 0] = p.truename;
-                    p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth;
-                    p.Extras["HUNGER"] = 1000;
-                    p.Extras["DROWNING"] = 20;
-                    players[i, 2] = "30000";
-                    return;
-                }
             }
         }
 
@@ -1743,24 +1649,23 @@ namespace MCGalaxy
         public static void CheckInvisible(SchedulerTask task)
         {
             Player[] players = PlayerInfo.Online.Items;
-            foreach (Player p in players)
+
+            foreach (Player pl in players)
             {
-                if (!p.Extras.GetBoolean("POTION_IS_INVISIBLE")) continue;
-                // Timer
+                if (!pl.Extras.GetBoolean("POTION_IS_INVISIBLE")) continue;
 
-                string time = p.Extras.GetString("POTION_INV_TIMER");
+                string time = pl.Extras.GetString("POTION_INV_TIMER");
+
                 DateTime date1 = DateTime.Parse(time);
-
                 DateTime date2 = date1.AddSeconds(10);
 
                 if (DateTime.UtcNow > date2)
                 {
-                    p.Extras["POTION_IS_INVISIBLE"] = false;
+                    pl.Extras["POTION_IS_INVISIBLE"] = false;
 
-                    Entities.GlobalSpawn(p, true);
-                    Server.hidden.Remove(p.truename);
-                    p.Message("The invisibility potion has worn off, you are now visible again.");
-                    Server.MainScheduler.Cancel(task);
+                    Entities.GlobalSpawn(pl, true);
+                    Server.hidden.Remove(pl.truename);
+                    pl.Message("The invisibility potion has worn off, you are now visible again.");
                 }
             }
         }
@@ -1768,23 +1673,23 @@ namespace MCGalaxy
         public static void CheckSpeed(SchedulerTask task)
         {
             Player[] players = PlayerInfo.Online.Items;
-            foreach (Player p in players)
-            {
-                if (!p.Extras.GetBoolean("POTION_IS_FAST")) continue;
-                if (p.Extras.GetBoolean("POTION_IS_JUMP")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
-                else p.Send(Packet.Motd(p, p.level.Config.MOTD + " horspeed=3.75"));
-                // Timer
 
-                string time = p.Extras.GetString("POTION_SPEED_TIMER");
+            foreach (Player pl in players)
+            {
+                if (!pl.Extras.GetBoolean("POTION_IS_FAST")) continue;
+                if (pl.Extras.GetBoolean("POTION_IS_JUMP")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
+                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " horspeed=3.75"));
+
+                string time = pl.Extras.GetString("POTION_SPEED_TIMER");
+
                 DateTime date1 = DateTime.Parse(time);
                 DateTime date2 = date1.AddSeconds(7);
 
                 if (DateTime.UtcNow > date2)
                 {
-                    p.Extras["POTION_IS_FAST"] = false;
-                    p.SendMapMotd();
-                    p.Message("The speed potion has worn off, you are now at normal speed again.");
-                    Server.MainScheduler.Cancel(task);
+                    pl.Extras["POTION_IS_FAST"] = false;
+                    pl.SendMapMotd();
+                    pl.Message("The speed potion has worn off, you are now at normal speed again.");
                 }
             }
         }
@@ -1792,24 +1697,24 @@ namespace MCGalaxy
         public static void CheckJump(SchedulerTask task)
         {
             Player[] players = PlayerInfo.Online.Items;
-            foreach (Player p in players)
-            {
-                if (!p.Extras.GetBoolean("POTION_IS_JUMP")) continue;
-                if (p.Extras.GetBoolean("POTION_IS_FAST")) p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
-                else p.Send(Packet.Motd(p, p.level.Config.MOTD + " jumpheight=4"));
-                if (p.Supports(CpeExt.HackControl)) p.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight            	
-                // Timer
 
-                string time = p.Extras.GetString("POTION_JUMP_TIMER");
+            foreach (Player pl in players)
+            {
+                if (!pl.Extras.GetBoolean("POTION_IS_JUMP")) continue;
+                if (pl.Extras.GetBoolean("POTION_IS_FAST")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
+                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4"));
+                if (pl.Supports(CpeExt.HackControl)) pl.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight
+
+                string time = pl.Extras.GetString("POTION_JUMP_TIMER");
+
                 DateTime date1 = DateTime.Parse(time);
                 DateTime date2 = date1.AddSeconds(7);
 
                 if (DateTime.UtcNow > date2)
                 {
-                    p.Extras["POTION_IS_JUMP"] = false;
-                    p.SendMapMotd();
-                    p.Message("The jump potion has worn off, you are now at normal jump height again.");
-                    Server.MainScheduler.Cancel(task);
+                    pl.Extras["POTION_IS_JUMP"] = false;
+                    pl.SendMapMotd();
+                    pl.Message("The jump potion has worn off, you are now at normal jump height again.");
                 }
             }
         }
@@ -1868,15 +1773,16 @@ namespace MCGalaxy
         public static void DropItemCallback(SchedulerTask task)
         {
             Player[] players = PlayerInfo.Online.Items;
-            foreach (Player p in players)
+
+            foreach (Player pl in players)
             {
-                if (p.Extras.GetString("DROPPING_ITEM") == "none") continue;
+                if (pl.Extras.GetString("DROPPING_ITEM") == "none") continue;
                 DropItemData data = (DropItemData)task.State;
-                if (TickDropItem(p, data)) return;
+                if (TickDropItem(pl, data)) return;
 
                 // Done
                 task.Repeating = false;
-                p.Extras["DROPPING_ITEM"] = "none";
+                pl.Extras["DROPPING_ITEM"] = "none";
             }
         }
 
@@ -1999,6 +1905,7 @@ namespace MCGalaxy
             }
 
             if (!HasExtraPerm(p, data.Rank, 1)) return;
+
             string pvpMap = args[1];
 
             PvP.maplist.Add(pvpMap);
@@ -2014,24 +1921,13 @@ namespace MCGalaxy
                 }
             }
 
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player pl in online)
+            Player[] players = PlayerInfo.Online.Items;
+
+            foreach (Player pl in players)
             {
                 if (pl.level.name.ToLower() == args[1].ToLower())
                 {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        if (PvP.players[i, 0] == null)
-                        {
-                            PvP.players[i, 0] = p.truename;
-                            p.Extras["SURVIVAL_HEALTH"] = PvP.Config.MaxHealth;
-                            p.Extras["HUNGER"] = 1000;
-                            p.Extras["DROWNING"] = 20;
-                            p.SendCpeMessage(CpeMessageType.BottomRight1, PvP.GetHealthBar(20));
-                            PvP.players[i, 2] = "30000";
-                            return;
-                        }
-                    }
+                    PvP.ResetPlayerState(pl);
                 }
             }
         }
@@ -2043,7 +1939,9 @@ namespace MCGalaxy
                 p.Message("You need to specify a map to remove.");
                 return;
             }
+
             if (!HasExtraPerm(p, data.Rank, 1)) return;
+
             string pvpMap = args[1];
 
             PvP.maplist.Remove(pvpMap);
@@ -2355,8 +2253,9 @@ namespace MCGalaxy
 
         void HandleTake(Player p, string[] args)
         {
-            Player[] online = PlayerInfo.Online.Items;
-            foreach (Player pl in online)
+            Player[] players = PlayerInfo.Online.Items;
+
+            foreach (Player pl in players)
             {
                 if (pl.truename == args[1])
                 {
@@ -2556,7 +2455,9 @@ namespace MCGalaxy
                         p.Message("%SYou do not have any potions.");
                         return;
                     }
+
                     int h = int.Parse(rows[0][1]);
+
                     if (h == 0)
                     {
                         p.Message("You don't have any health potions.");
@@ -2565,7 +2466,7 @@ namespace MCGalaxy
 
                     // Use potion
                     Database.UpdateRows("Potions", "Health=@1", "WHERE NAME=@0", p.truename, h - 1);
-                    p.Extras["SURVIVAL_HEALTH"] = 20;
+                    p.Extras["SURVIVAL_HEALTH"] = PvP.Config.MaxHealth;
                     p.Message("Your health has been replenished.");
                     p.Message("You have " + (h - 1) + " health potions remaining.");
                 }
