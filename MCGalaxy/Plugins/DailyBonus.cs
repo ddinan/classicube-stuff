@@ -21,8 +21,9 @@ namespace Core
         public override string name { get { return "DailyBonus"; } }
 
         public static SchedulerTask task;
+        const string CONFIG_PATH = "plugins/DailyBonus/config.properties";
 
-        public class Config
+        public static class Config
         {
             [ConfigInt("type", "Rewards", 0)]
             public static int Type = 0; // 0 = players get on join, 1 = player types /daily, 2 = automatic daily after x time
@@ -40,29 +41,30 @@ namespace Core
             public static bool EnableStreaks = false; // Increment amount for consecutive logins. E.g, day 1 = 30, day 2 = 31, day 3 = 32 etc
 
             static ConfigElement[] cfg;
-            public void Load()
+            public static void Load()
             {
                 if (cfg == null) cfg = ConfigElement.GetAll(typeof(Config));
-                ConfigElement.ParseFile(cfg, "./plugins/DailyBonus/config.properties", this);
+                ConfigElement.ParseFile(cfg, CONFIG_PATH, null);
             }
 
-            public void Save()
+            public static void Save()
             {
                 if (cfg == null) cfg = ConfigElement.GetAll(typeof(Config));
-                ConfigElement.SerialiseSimple(cfg, "./plugins/DailyBonus/config.properties", this);
+                ConfigElement.SerialiseSimple(cfg, CONFIG_PATH, null);
             }
         }
 
-        public static Config cfg = new Config();
-
         public override void Load(bool startup)
         {
-            cfg.Load(); // Load config
+            try { Directory.CreateDirectory("plugins/DailyBonus"); } catch { }
+
+            if (!File.Exists(CONFIG_PATH)) Config.Save();
+            Config.Load(); // Load config
 
             // Load lists so we can add/check data to them
 
-            claimed = PlayerExtList.Load("./plugins/DailyBonus/claimed.txt");
-            streaks = PlayerExtList.Load("./plugins/DailyBonus/streaks.txt");
+            claimed = PlayerExtList.Load("plugins/DailyBonus/claimed.txt");
+            streaks = PlayerExtList.Load("plugins/DailyBonus/streaks.txt");
 
             if (Config.Type == 0) OnPlayerConnectEvent.Register(HandlePlayerConnect, Priority.High);
             if (Config.Type == 1) Command.Register(new CmdDailyBonus());
