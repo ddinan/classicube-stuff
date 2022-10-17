@@ -35,7 +35,7 @@ public class CmdMoveEverything : Command2
 
     public static void MoveBots(Player p, int x, int y, int z)
     {
-        // Convert from block positions into precise positions
+        // Convert block positions into precise positions
 
         x *= 32;
         y *= 32;
