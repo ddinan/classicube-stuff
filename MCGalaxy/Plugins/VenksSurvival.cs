@@ -461,6 +461,7 @@ namespace MCGalaxy
                     else
                     {
                         column = FindActiveSlot(pRows[0], GetID(block));
+
                         if (column == 0) amount = 0;
                         else amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
                     }
@@ -925,7 +926,10 @@ namespace MCGalaxy
                 else
                 {
                     string name = Block.GetName(p, block);
-                    int column = FindActiveSlot(pRows[0], GetID(block));
+                    int column = 0;
+
+                    if (name.ToLower() == "grass") column = FindActiveSlot(pRows[0], GetID(Block.Dirt));
+                    else column = FindActiveSlot(pRows[0], GetID(block));
 
                     if (column == 0)
                     {
@@ -1083,7 +1087,9 @@ namespace MCGalaxy
 
                         if (blockstats[2] == "0")
                         {
-                            SaveBlock(p, clickedBlock, x, y, z);
+                            if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
+                            else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
+                            else SaveBlock(p, clickedBlock, x, y, z);
                             p.level.UpdateBlock(p, x, y, z, Block.Air);
                             return;
                         }
@@ -1105,13 +1111,17 @@ namespace MCGalaxy
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
-                                SaveBlock(p, clickedBlock, x, y, z);
+                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
+                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
+                                else SaveBlock(p, clickedBlock, x, y, z);
+
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING"] = false;
                                 p.Extras["MINING_COORDS"] = 0;
                                 return;
                             }
+
                             p.Extras["HOLDING_TIME"] = heldFor + 1;
 
                             if (Config.UseGoodlyEffects)
@@ -1134,7 +1144,10 @@ namespace MCGalaxy
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
-                                SaveBlock(p, clickedBlock, x, y, z);
+                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
+                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
+                                else SaveBlock(p, clickedBlock, x, y, z);
+
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
