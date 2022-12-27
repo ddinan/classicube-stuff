@@ -52,10 +52,12 @@ using System.IO;
 
 using MCGalaxy;
 using MCGalaxy.Blocks;
+using MCGalaxy.Blocks.Physics;
 using MCGalaxy.Bots;
 using MCGalaxy.Commands;
 using MCGalaxy.Config;
 using MCGalaxy.Events;
+using MCGalaxy.Events.LevelEvents;
 using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Drawing.Ops;
 using MCGalaxy.Games;
@@ -122,6 +124,12 @@ namespace MCGalaxy
             [ConfigString("hit-particle", "Extra", "pvp")]
             public static string HitParticle = "pvp";
 
+            [ConfigBool("custom-liquid-physics", "Extra", false)]
+            public static bool CustomLiquidPhysics = false;
+
+            [ConfigInt("custom-physics-block", "Extra", 102)]
+            public static int CustomPhysicsBlock = 102;
+
             static ConfigElement[] cfg;
             public void Load()
             {
@@ -164,6 +172,10 @@ namespace MCGalaxy
                 w.WriteLine("max-health = 20");
                 w.WriteLine("# Whether or not to use Goodly's effects plugin for particles. Note: Needs GoodlyEffects to work.");
                 w.WriteLine("use-goodly-effects = false");
+                w.WriteLine("# Whether or not to allow custom liquid physics.");
+                w.WriteLine("custom-liquid-physics = false");
+                w.WriteLine("# If custom-liquid-physics is enabled, the ID of the block to trigger the physics.");
+                w.WriteLine("custom-physics-block = 102");
                 w.WriteLine();
             }
         }
@@ -189,27 +201,44 @@ namespace MCGalaxy
             cfg.Load();
 
             // Load files
-
             loadMaps();
             loadWeapons();
             loadTools();
             loadBlocks();
             initDB();
 
-            OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
-            OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
-            OnPlayerDeathEvent.Register(HandlePlayerDeath, Priority.High);
-            OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
-            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
-            OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
-            OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
+            // Register events
+            if (Config.CustomLiquidPhysics)
+            {
+                Level[] levels = LevelInfo.Loaded.Items;
+                foreach (Level lvl in levels)
+                {
+                    if (maplist.Contains(lvl.name))
+                    {
+                        lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomPhysicsBlock)] = CustomLiquidPhysics.DoFlood;
+                    }
+                }
 
+                OnBlockHandlersUpdatedEvent.Register(OnBlockHandlersUpdated, Priority.Low);
+            }
+
+            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
+
+            OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
+            OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
+            OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
+            OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
+            OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
+            OnPlayerDeathEvent.Register(HandlePlayerDeath, Priority.High);
+
+            // Queue tasks
             if (Config.Drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
             if (Config.Hunger) Server.MainScheduler.QueueRepeat(HandleHunger, null, TimeSpan.FromSeconds(1));
             if (Config.Regeneration) Server.MainScheduler.QueueRepeat(HandleRegeneration, null, TimeSpan.FromSeconds(4));
 
             Server.MainScheduler.QueueRepeat(HandleGUI, null, TimeSpan.FromMilliseconds(50));
 
+            // Register commands
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
             Command.Register(new CmdWeapon());
@@ -232,13 +261,15 @@ namespace MCGalaxy
         public override void Unload(bool shutdown)
         {
             // Unload events
-            OnPlayerClickEvent.Unregister(HandlePlayerClick);
-            OnPlayerClickEvent.Unregister(HandleBlockClick);
-            OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
-            OnGettingMotdEvent.Unregister(HandleGettingMotd);
+            if (Config.CustomLiquidPhysics) OnBlockHandlersUpdatedEvent.Unregister(OnBlockHandlersUpdated);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
-            OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
+
             OnBlockChangingEvent.Unregister(HandleBlockChanged);
+            OnGettingMotdEvent.Unregister(HandleGettingMotd);
+            OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
+            OnPlayerClickEvent.Unregister(HandleBlockClick);
+            OnPlayerClickEvent.Unregister(HandlePlayerClick);
+            OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
 
             // Unload commands
             Command.Unregister(Command.Find("PvP"));
@@ -256,6 +287,13 @@ namespace MCGalaxy
             Server.MainScheduler.Cancel(drownTask);
             Server.MainScheduler.Cancel(hungerTask);
             Server.MainScheduler.Cancel(regenTask);
+        }
+
+        static void OnBlockHandlersUpdated(Level lvl, BlockID block)
+        {
+            if (!maplist.Contains(lvl.name)) { return; }
+            if (block != Block.FromRaw((ushort)Config.CustomPhysicsBlock)) { return; }
+            lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomPhysicsBlock)] = CustomLiquidPhysics.DoFlood;
         }
 
         /// <summary>
@@ -1067,7 +1105,6 @@ namespace MCGalaxy
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
-
                                 SaveBlock(p, clickedBlock, x, y, z);
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
@@ -1345,7 +1382,7 @@ namespace MCGalaxy
             }
             else
             {
-                p.Message("You can left and right click peovictime to hit them if you update your client!");
+                p.Message("You can left and right click on players to hit them if you update your client!");
             }
         }
 
@@ -1719,6 +1756,84 @@ namespace MCGalaxy
             }
         }
         #endregion
+    }
+
+    public static class CustomLiquidPhysics
+    {
+        public static void DoFlood(Level lvl, ref PhysInfo C)
+        {
+            ushort x = C.X, y = C.Y, z = C.Z;
+
+            BlockID block = C.Block;
+
+            if (y < lvl.Height - 1)
+            {
+                CheckFallingBlocks(lvl, C.Index + lvl.Width * lvl.Length);
+            }
+
+            PhysWater(lvl, (ushort)(x + 1), y, z, block, C.Data, x, y, z);
+            PhysWater(lvl, (ushort)(x - 1), y, z, block, C.Data, x, y, z);
+            PhysWater(lvl, x, y, (ushort)(z + 1), block, C.Data, x, y, z);
+            PhysWater(lvl, x, y, (ushort)(z - 1), block, C.Data, x, y, z);
+            PhysWater(lvl, x, (ushort)(y - 1), z, block, C.Data, x, y, z);
+
+            //if (!C.Data.HasWait) C.Data.Data = PhysicsArgs.RemoveFromChecks;
+        }
+
+        public static void PhysWater(Level lvl, ushort x, ushort y, ushort z, BlockID b, PhysicsArgs args, ushort curX, ushort curY, ushort curZ)
+        {
+            int curIndex;
+            BlockID current = lvl.GetBlock(curX, curY, curZ, out curIndex);
+
+            int index;
+            BlockID block = lvl.GetBlock(x, y, z, out index);
+
+            //args.Value2 = 0;
+
+            // Console.WriteLine(x + " " + y + " " + z + " " + current.ToString());
+
+            switch (block)
+            {
+                case Block.FastLava:
+                case Block.Deadly_ActiveLava:
+                case Block.Lava:
+                case Block.StillLava:
+                    lvl.Blockchange(Player.Console, curX, curY, curZ, Block.Stone);
+                    args.Value2 = 1;
+                    break;
+
+                //case 102 + 256:
+                case Block.Air:
+                    byte spread = args.Value1;
+                    byte hit = args.Value2;
+
+                    if (hit == 1) break;
+                    if (spread > 7) break;
+
+                    args = default(PhysicsArgs);
+                    args.Value1 = (byte)(spread + 1);
+                    args.ExtBlock = 1;
+                    lvl.AddUpdate(index, b, args);
+                    break;
+
+                default:
+                    // Don't do anything if block is not air or liquid
+                    break;
+            }
+        }
+
+        static void CheckFallingBlocks(Level lvl, int b)
+        {
+            switch (lvl.blocks[b])
+            {
+                case Block.Sand:
+                case Block.Gravel:
+                case Block.FloatWood:
+                    lvl.AddCheck(b); break;
+                default:
+                    break;
+            }
+        }
     }
 
     public class DropItem
