@@ -29,17 +29,21 @@
   2. To use the potion, type /potion [potion type]
   
   IF YOU WANT SPRINTING:
-  1. Type /map motd -speed maxspeed=1.47.
+  1. Include "-speed maxspeed=1.47" in /map motd.
   2. To sprint, hold shift while running.
 
   IF YOU WANT HUNGER:
-  1. Type /map motd +hunger
+  1. Include "+hunger" in /map motd.
   
   IF YOU WANT TO SHOW THE BLOCK YOU'RE HOLDING TO OTHER PLAYERS:
   1. Download my HoldBlocks plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/HoldBlocks.cs.
 
   IF YOU WANT MOB INSTRUCTIONS:
   1. Download my MobAI plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/MobAI.cs.
+
+  IF YOU WANT A DAY-NIGHT CYCLE:
+  1. Download my DayNightCycle plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/DayNightCycle.cs.
+  2. Include "+daynightcycle" in /map motd.
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
@@ -182,11 +186,11 @@ namespace MCGalaxy
 
         public static Config cfg = new Config();
 
-        public static int curpid = -1;
         public static List<string> maplist = new List<string>();
-        public static string[,] weapons = new string[255, 3];
-        public static string[,] tools = new string[255, 4];
         public static string[,] blocks = new string[255, 3];
+        public static string[,] recipes = new string[255, 2];
+        public static string[,] tools = new string[255, 4];
+        public static string[,] weapons = new string[255, 3];
 
         public static SchedulerTask drownTask;
         public static SchedulerTask guiTask;
@@ -200,11 +204,13 @@ namespace MCGalaxy
             // Initialize config
             cfg.Load();
 
-            // Load files
-            loadMaps();
-            loadWeapons();
-            loadTools();
+            // Load data files
+
             loadBlocks();
+            loadMaps();
+            loadRecipes();
+            loadTools();
+            loadWeapons();
             initDB();
 
             // Register events
@@ -239,6 +245,7 @@ namespace MCGalaxy
             Server.MainScheduler.QueueRepeat(HandleGUI, null, TimeSpan.FromMilliseconds(50));
 
             // Register commands
+            Command.Register(new CmdCraft());
             Command.Register(new CmdPvP());
             Command.Register(new CmdSafeZone());
             Command.Register(new CmdWeapon());
@@ -272,6 +279,7 @@ namespace MCGalaxy
             OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
 
             // Unload commands
+            Command.Unregister(Command.Find("Craft"));
             Command.Unregister(Command.Find("PvP"));
             Command.Unregister(Command.Find("SafeZone"));
             Command.Unregister(Command.Find("Weapon"));
@@ -802,7 +810,7 @@ namespace MCGalaxy
             return String.Empty;
         }
 
-        int FindSlotFor(string[] row, string name)
+        static int FindSlotFor(string[] row, string name)
         {
             for (int col = 1; col <= 36; col++)
             {
@@ -813,7 +821,7 @@ namespace MCGalaxy
             return 0;
         }
 
-        int FindActiveSlot(string[] row, string name)
+        public static int FindActiveSlot(string[] row, string name)
         {
             for (int col = 1; col <= 36; col++)
             {
@@ -823,19 +831,18 @@ namespace MCGalaxy
             return 0;
         }
 
-        string GetID(BlockID block)
+        public static string GetID(BlockID block)
         {
             string id = block.ToString();
             if (Convert.ToInt32(block) >= 66) id = (block - 256).ToString(); // Need to convert block if ID is over 66
             return "b" + id;
         }
 
-        void UpdateBlockList(Player p, int column)
+        public static void UpdateBlockList(Player p, int column)
         {
             List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
 
-            if (pRows.Count == 0) return;
-            else
+            if (pRows.Count > 0)
             {
                 if (pRows[0][column].ToString().StartsWith("0"))
                 {
@@ -858,7 +865,7 @@ namespace MCGalaxy
             }
         }
 
-        void SaveBlock(Player p, BlockID block, ushort x, ushort y, ushort z)
+        public static void SaveBlock(Player p, BlockID block, int amount)
         {
             string name = Block.GetName(p, block);
 
@@ -875,11 +882,12 @@ namespace MCGalaxy
             {
                 Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
-                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(1)", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(" + amount + ")", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
 
                 UpdateBlockList(p, 1);
                 return;
             }
+
             else
             {
                 int column = FindSlotFor(pRows[0], GetID(block));
@@ -890,13 +898,46 @@ namespace MCGalaxy
                     return;
                 }
 
-                int newCount = pRows[0][column].ToString().StartsWith("0") ? 1 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + 1;
+                int newCount = pRows[0][column].ToString().StartsWith("0") ? amount : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + amount;
 
                 Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
 
                 UpdateBlockList(p, column);
                 return;
             }
+        }
+
+        /// <summary>
+        /// Replaces directional suffixes (-N, -S, -W, -E, -U, -D) for generalization.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+
+        public static string ReplaceSuffixes(string name)
+        {
+            // Remove directional suffixes (-N, -S, -W, -E, -U, -D)
+            // We will use '-D' as the destination block for vertical suffixes (slabs) and -N for horizontal suffixes (walls/stairs/chests etc)
+
+            if (name.EndsWith("-U") || name.EndsWith("-D"))
+            {
+                var suffix = name.Substring(name.LastIndexOf('-'));
+                name = name.Replace(suffix, "-D");
+            }
+
+            else if (name.Contains("-"))
+            {
+                var suffix = name.Substring(name.LastIndexOf('-'));
+
+                // The log blocks have hardcoded behaviour due to having both vertical and horizontal variants
+                if (name.Contains("Log"))
+                {
+                    name = name.Replace(suffix, "-UD");
+                }
+
+                else name = name.Replace(suffix, "-N");
+            }
+
+            return name;
         }
 
         void HandleBlockChanged(Player p, ushort x, ushort y, ushort z, BlockID block, bool placing, ref bool cancel)
@@ -918,14 +959,18 @@ namespace MCGalaxy
 
                 if (pRows.Count == 0)
                 {
-                    p.Message("You do not have any of this block.");
+                    p.Message("%SYou do not have any of this block.");
                     p.RevertBlock(x, y, z);
                     cancel = true;
                     return;
                 }
+
                 else
                 {
                     string name = Block.GetName(p, block);
+                    name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+                    if (!CommandParser.GetBlock(p, name, out block)) return;
+
                     int column = 0;
 
                     if (name.ToLower() == "grass") column = FindActiveSlot(pRows[0], GetID(Block.Dirt));
@@ -933,7 +978,7 @@ namespace MCGalaxy
 
                     if (column == 0)
                     {
-                        p.Message("You do not have any of this block.");
+                        p.Message("%SYou do not have any of this block.");
                         p.RevertBlock(x, y, z);
                         cancel = true;
                         return;
@@ -1009,6 +1054,8 @@ namespace MCGalaxy
 
                 BlockID clickedBlock = p.level.GetBlock(x, y, z);
                 string name = Block.GetName(p, clickedBlock);
+
+                if (name.ToLower() == "unknown") return;
 
                 if (button == MouseButton.Left)
                 {
@@ -1087,9 +1134,13 @@ namespace MCGalaxy
 
                         if (blockstats[2] == "0")
                         {
-                            if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
-                            else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
-                            else SaveBlock(p, clickedBlock, x, y, z);
+                            name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+                            if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
+
+                            if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
+                            else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+                            else SaveBlock(p, clickedBlock, 1);
+
                             p.level.UpdateBlock(p, x, y, z, Block.Air);
                             return;
                         }
@@ -1111,9 +1162,12 @@ namespace MCGalaxy
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
-                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
-                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
-                                else SaveBlock(p, clickedBlock, x, y, z);
+                                name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+                                if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
+
+                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
+                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+                                else SaveBlock(p, clickedBlock, 1);
 
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
@@ -1144,9 +1198,12 @@ namespace MCGalaxy
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
-                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, x, y, z);
-                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, x, y, z);
-                                else SaveBlock(p, clickedBlock, x, y, z);
+                                name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+                                if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
+
+                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
+                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+                                else SaveBlock(p, clickedBlock, 1);
 
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
                                 p.Extras["HOLDING_TIME"] = 0;
@@ -1516,11 +1573,11 @@ namespace MCGalaxy
 
         #endregion
 
-        #region Weapons
+        #region Blocks
 
-        public static bool hasWeapon(string world, Player p, string weapon)
+        bool hasBlock(string world, Player p, string block)
         {
-            string filepath = Config.Path + "weapons/" + world + "/" + p.truename + ".txt";
+            string filepath = Config.Path + "blocks/" + world + "/" + p.truename + ".txt";
             if (File.Exists(filepath))
             {
                 using (var r = new StreamReader(filepath))
@@ -1528,49 +1585,99 @@ namespace MCGalaxy
                     string line;
                     while ((line = r.ReadLine()) != null)
                     {
-                        if (line == weapon) return true;
+                        if (line == block) return true;
                     }
                 }
             }
             return false;
         }
 
-        public static string getWeaponStats(string weapon)
+        string getBlockStats(string block)
         {
             for (int i = 0; i < 255; i++)
             {
-                if (weapons[i, 0] == weapon)
+                if (blocks[i, 0] == null) continue;
+
+                if (blocks[i, 0] == block)
                 {
-                    return weapons[i, 0] + " " + weapons[i, 1] + " " + weapons[i, 2];
+                    return blocks[i, 0] + " " + blocks[i, 1] + " " + blocks[i, 2];
                 }
             }
             return "0 1 0";
         }
 
-        void loadWeapons()
+        void loadBlocks()
         {
-            if (File.Exists(Config.Path + "weapons.txt"))
+            if (File.Exists(Config.Path + "blocks.txt"))
             {
-                using (var r = new StreamReader(Config.Path + "weapons.txt"))
+                using (var r = new StreamReader(Config.Path + "blocks.txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
                     {
-                        string[] weaponStats = line.Split(';');
+                        string[] blockStats = line.Split(';');
                         for (int i = 0; i < 255; i++)
                         {
-                            if (weapons[i, 0] == null)
+                            if (blocks[i, 0] == null)
                             {
-                                weapons[i, 0] = weaponStats[0];
-                                weapons[i, 1] = weaponStats[1];
-                                weapons[i, 2] = weaponStats[2];
+                                blocks[i, 0] = blockStats[0];
+                                blocks[i, 1] = blockStats[1];
+                                blocks[i, 2] = blockStats[2];
                                 break;
                             }
                         }
                     }
                 }
             }
-            else File.Create(Config.Path + "weapons.txt").Dispose();
+
+            else File.Create(Config.Path + "blocks.txt").Dispose();
+        }
+
+        #endregion
+
+        #region Recipes
+
+        public static string getRecipe(string item)
+        {
+            for (int i = 0; i < recipes.Length; i++)
+            {
+                if (recipes[i, 0] == null) continue;
+
+                if (recipes[i, 0].Split(':')[0].ToLower() == item.ToLower())
+                {
+                    return recipes[i, 0] + " " + recipes[i, 1];
+                }
+            }
+            return "0 0";
+        }
+
+        void loadRecipes()
+        {
+            if (File.Exists(Config.Path + "recipes.txt"))
+            {
+                using (var r = new StreamReader(Config.Path + "recipes.txt"))
+                {
+                    string line;
+
+                    while ((line = r.ReadLine()) != null)
+                    {
+                        if (line.StartsWith("//")) continue;
+                        string[] recipeStats = line.Split(';');
+
+                        for (int i = 0; i < 255; i++)
+                        {
+                            if (recipes[i, 0] == null)
+                            {
+                                recipes[i, 0] = recipeStats[0];
+                                recipes[i, 1] = recipeStats[1];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            else File.Create(Config.Path + "recipes.txt").Dispose();
         }
 
         #endregion
@@ -1630,16 +1737,17 @@ namespace MCGalaxy
                     }
                 }
             }
+
             else File.Create(Config.Path + "tools.txt").Dispose();
         }
 
         #endregion
 
-        #region Blocks
+        #region Weapons
 
-        bool hasBlock(string world, Player p, string block)
+        public static bool hasWeapon(string world, Player p, string weapon)
         {
-            string filepath = Config.Path + "blocks/" + world + "/" + p.truename + ".txt";
+            string filepath = Config.Path + "weapons/" + world + "/" + p.truename + ".txt";
             if (File.Exists(filepath))
             {
                 using (var r = new StreamReader(filepath))
@@ -1647,49 +1755,50 @@ namespace MCGalaxy
                     string line;
                     while ((line = r.ReadLine()) != null)
                     {
-                        if (line == block) return true;
+                        if (line == weapon) return true;
                     }
                 }
             }
             return false;
         }
 
-        string getBlockStats(string block)
+        public static string getWeaponStats(string weapon)
         {
             for (int i = 0; i < 255; i++)
             {
-                if (blocks[i, 0] == block)
+                if (weapons[i, 0] == weapon)
                 {
-                    return blocks[i, 0] + " " + blocks[i, 1] + " " + blocks[i, 2];
+                    return weapons[i, 0] + " " + weapons[i, 1] + " " + weapons[i, 2];
                 }
             }
             return "0 1 0";
         }
 
-        void loadBlocks()
+        void loadWeapons()
         {
-            if (File.Exists(Config.Path + "blocks.txt"))
+            if (File.Exists(Config.Path + "weapons.txt"))
             {
-                using (var r = new StreamReader(Config.Path + "blocks.txt"))
+                using (var r = new StreamReader(Config.Path + "weapons.txt"))
                 {
                     string line;
                     while ((line = r.ReadLine()) != null)
                     {
-                        string[] blockStats = line.Split(';');
+                        string[] weaponStats = line.Split(';');
                         for (int i = 0; i < 255; i++)
                         {
-                            if (blocks[i, 0] == null)
+                            if (weapons[i, 0] == null)
                             {
-                                blocks[i, 0] = blockStats[0];
-                                blocks[i, 1] = blockStats[1];
-                                blocks[i, 2] = blockStats[2];
+                                weapons[i, 0] = weaponStats[0];
+                                weapons[i, 1] = weaponStats[1];
+                                weapons[i, 2] = weaponStats[2];
                                 break;
                             }
                         }
                     }
                 }
             }
-            else File.Create(Config.Path + "blocks.txt").Dispose();
+
+            else File.Create(Config.Path + "weapons.txt").Dispose();
         }
 
         #endregion
@@ -1939,6 +2048,119 @@ namespace MCGalaxy
     }
 
     #region Commands
+
+    public sealed class CmdCraft : Command2
+    {
+        public override string name { get { return "Craft"; } }
+        public override string type { get { return "Other"; } }
+        public override bool museumUsable { get { return false; } }
+
+        bool HasIngredients(Player p, string[] ingredientList, int amount)
+        {
+            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+
+            foreach (string ingredient in ingredientList)
+            {
+                string ingredientName = ingredient.Split(':')[0];
+                int ingredientAmount = (int.Parse(ingredient.Split(':')[1])) * amount;
+
+                if (pRows.Count == 0) return false;
+
+                else
+                {
+                    ingredientName = PvP.ReplaceSuffixes(ingredientName); // Remove suffixes such as -N, -U etc
+
+                    BlockID block;
+                    if (!CommandParser.GetBlock(p, ingredientName, out block)) return false;
+
+                    int column = PvP.FindActiveSlot(pRows[0], PvP.GetID(block));
+
+                    if (column == 0) return false;
+
+                    // Check how many of this material the player has
+                    int number = Int32.Parse(pRows[0][column].ToString().Replace(PvP.GetID(block), "").Replace("(", "").Replace(")", ""));
+
+                    // If player has sufficient materials, update inventory
+                    if (number >= ingredientAmount)
+                    {
+                        int newCount = number - ingredientAmount;
+
+                        if (newCount == 0)
+                        {
+                            Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
+                            p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
+                        }
+
+                        else
+                        {
+                            PvP.UpdateBlockList(p, column);
+                            Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, PvP.GetID(block) + "(" + newCount.ToString() + ")");
+                        }
+
+                        p.Message("%c-" + ingredientAmount + " %7" + ingredientName);
+                        return true;
+                    }
+
+                    else return false;
+                }
+            }
+
+            return false;
+        }
+
+        public override void Use(Player p, string message, CommandData data)
+        {
+            string[] args = message.SplitSpaces();
+
+            if (message.Length == 0)
+            {
+                p.Message("You need to specify an item name. E.g, 'stick'.");
+                return;
+            }
+
+            if (args.Length == 1)
+            {
+                p.Message("You need to specify the amount to craft.");
+                return;
+            }
+
+            int amount = int.Parse(args[1]);
+
+            string[] recipe = PvP.getRecipe(args[0]).Split(' ');
+
+            if (recipe[0] == "0 0")
+            {
+                p.Message("%SInvalid item. See %b/Craft list %Sfor more information.");
+                return;
+            }
+
+            string item = recipe[0].Split(':')[0];
+            int amountProduced = (int.Parse(recipe[0].Split(':')[1])) * amount;
+
+            string[] ingredientList = recipe[1].Split(','); // ingredient1:amount,ingredient2:amount,ingredient3:amount
+
+            if (HasIngredients(p, ingredientList, amount))
+            {
+                item = PvP.ReplaceSuffixes(item); // Remove suffixes such as -N, -U etc
+                BlockID block;
+                if (!CommandParser.GetBlock(p, item, out block)) return;
+
+                PvP.SaveBlock(p, block, amountProduced);
+                p.Message("%a+" + amountProduced + " %7" + Block.GetName(p, block));
+            }
+
+            else
+            {
+                p.Message("%SYou do not have the materials required to craft this item.");
+            }
+        }
+
+        public override void Help(Player p)
+        {
+            p.Message("%T/Craft [item] [amount] %H- Crafts [amount] of [item].");
+            p.Message("%T/Craft list %H- Shows all available items that you can craft.");
+        }
+    }
 
     public sealed class CmdInventory : Command2
     {
