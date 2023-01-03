@@ -131,11 +131,11 @@ namespace MCGalaxy
             [ConfigString("hit-particle", "Extra", "pvp")]
             public static string HitParticle = "pvp";
 
-            [ConfigBool("custom-liquid-physics", "Extra", false)]
-            public static bool CustomLiquidPhysics = false;
+            [ConfigBool("custom-physics", "Extra", false)]
+            public static bool CustomPhysics = false;
 
-            [ConfigInt("custom-physics-block", "Extra", 102)]
-            public static int CustomPhysicsBlock = 102;
+            [ConfigInt("custom-water-block", "Extra", 102)]
+            public static int CustomWaterBlock = 102;
 
             static ConfigElement[] cfg;
             public void Load()
@@ -219,18 +219,13 @@ namespace MCGalaxy
             initDB();
 
             // Register events
-            if (Config.CustomLiquidPhysics)
+            if (Config.CustomPhysics)
             {
                 Level[] levels = LevelInfo.Loaded.Items;
                 foreach (Level lvl in levels)
                 {
-                    if (maplist.Contains(lvl.name))
-                    {
-                        lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomPhysicsBlock)] = CustomLiquidPhysics.DoFlood;
-                    }
+                    if (maplist.Contains(lvl.name)) AddCustomPhysics(lvl);
                 }
-
-                OnBlockHandlersUpdatedEvent.Register(OnBlockHandlersUpdated, Priority.Low);
             }
 
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
@@ -238,6 +233,7 @@ namespace MCGalaxy
             OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
             OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
             OnJoinedLevelEvent.Register(HandleOnJoinedLevel, Priority.Low);
+            OnLevelLoadedEvent.Register(HandleOnLevelLoaded, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
             OnPlayerDeathEvent.Register(HandlePlayerDeath, Priority.High);
@@ -273,12 +269,12 @@ namespace MCGalaxy
         public override void Unload(bool shutdown)
         {
             // Unload events
-            if (Config.CustomLiquidPhysics) OnBlockHandlersUpdatedEvent.Unregister(OnBlockHandlersUpdated);
             if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
 
             OnBlockChangingEvent.Unregister(HandleBlockChanged);
             OnGettingMotdEvent.Unregister(HandleGettingMotd);
             OnJoinedLevelEvent.Unregister(HandleOnJoinedLevel);
+            OnLevelLoadedEvent.Unregister(HandleOnLevelLoaded);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
             OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
@@ -302,11 +298,19 @@ namespace MCGalaxy
             Server.MainScheduler.Cancel(regenTask);
         }
 
-        static void OnBlockHandlersUpdated(Level lvl, BlockID block)
+        static void AddCustomPhysics(Level lvl)
         {
-            if (!maplist.Contains(lvl.name)) { return; }
-            if (block != Block.FromRaw((ushort)Config.CustomPhysicsBlock)) { return; }
-            lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomPhysicsBlock)] = CustomLiquidPhysics.DoFlood;
+            if (!maplist.Contains(lvl.name)) return;
+
+            lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomWaterBlock)] = CustomLiquidPhysics.DoFlood;
+            lvl.PhysicsHandlers[Block.Leaves] = CustomLeafPhysics.DoLeaf;
+            lvl.PhysicsHandlers[Block.Log] = CustomLeafPhysics.DoLog;
+            lvl.PhysicsHandlers[Block.Sapling] = CustomFallPhysics.DoFall;
+        }
+
+        static void HandleOnLevelLoaded(Level lvl)
+        {
+            if (maplist.Contains(lvl.name)) AddCustomPhysics(lvl);
         }
 
         /// <summary>
@@ -1145,9 +1149,33 @@ namespace MCGalaxy
 
                             if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
                             else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+
+                            else if (clickedBlock == Block.Leaves)
+                            {
+                                // Chance of dropping sapling and apples
+                                decimal saplingChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+                                decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+
+                                bool dropping = false;
+                                if (saplingChance <= 5m)
+                                {
+                                    // Begin sapling fall
+                                    p.level.UpdateBlock(p, x, y, z, Block.Sapling);
+                                    dropping = true;
+                                }
+
+                                if (appleChance <= 0.5m)
+                                {
+                                    // TODO: Drop apples
+                                    // dropping = true;
+                                }
+
+                                if (!dropping) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                            }
+
                             else SaveBlock(p, clickedBlock, 1);
 
-                            p.level.UpdateBlock(p, x, y, z, Block.Air);
+                            if (clickedBlock != Block.Leaves) p.level.UpdateBlock(p, x, y, z, Block.Air);
                             return;
                         }
 
@@ -1209,9 +1237,33 @@ namespace MCGalaxy
 
                                 if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
                                 else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+                                else if (clickedBlock == Block.Leaves)
+                                {
+                                    // Chance of dropping sapling and apples
+                                    decimal saplingChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+                                    decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+
+                                    bool dropping = false;
+                                    if (saplingChance <= 5m)
+                                    {
+                                        // Begin sapling fall
+                                        p.level.UpdateBlock(p, x, y, z, Block.Sapling);
+                                        dropping = true;
+                                    }
+
+                                    if (appleChance <= 0.5m)
+                                    {
+                                        // TODO: Drop apples
+                                        // dropping = true;
+                                    }
+
+                                    if (!dropping) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                }
+
                                 else SaveBlock(p, clickedBlock, 1);
 
-                                p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                if (clickedBlock != Block.Leaves) p.level.UpdateBlock(p, x, y, z, Block.Air);
+
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
 
@@ -1898,6 +1950,230 @@ namespace MCGalaxy
         #endregion
     }
 
+    #region Physics
+
+    #region Fall physics
+
+    public static class CustomFallPhysics
+    {
+        public static void DoFall(Level lvl, ref PhysInfo C)
+        {
+            ushort x = C.X, y = C.Y, z = C.Z;
+            int index = C.Index;
+            bool movedDown = false;
+            ushort yCur = y;
+
+            do
+            {
+                index = lvl.IntOffset(index, 0, -1, 0); yCur--; // Get block below each loop
+                BlockID cur = lvl.GetBlock(x, yCur, z);
+                if (cur == Block.Invalid) break;
+                bool hitBlock = false;
+
+                switch (cur)
+                {
+                    case Block.Air:
+                        movedDown = true;
+                        break;
+                    default:
+                        hitBlock = true;
+                        break;
+                }
+                if (hitBlock || lvl.physics > 1) break;
+            } while (true);
+
+            if (movedDown)
+            {
+                lvl.AddUpdate(C.Index, Block.Air, default(PhysicsArgs));
+                if (lvl.physics > 1)
+                    lvl.AddUpdate(index, C.Block);
+
+                else
+                    lvl.AddUpdate(lvl.IntOffset(index, 0, -1, 0), C.Block);
+            }
+
+            C.Data.Data = PhysicsArgs.RemoveFromChecks;
+        }
+    }
+
+    #endregion
+
+    #region Leaf physics
+
+    public unsafe static class CustomLeafPhysics
+    {
+        public static decimal GetPercentage(decimal min, decimal max)
+        {
+            Random rand = new Random();
+            return ((decimal)rand.Next((int)(min * 100.0M), (int)(max * 100.0M))) / 100.0M;
+        }
+
+        internal static void CheckNeighbours(Level lvl, ushort x, ushort y, ushort z)
+        {
+            CheckAt(lvl, (ushort)(x + 1), y, z);
+            CheckAt(lvl, (ushort)(x - 1), y, z);
+            CheckAt(lvl, x, y, (ushort)(z + 1));
+            CheckAt(lvl, x, y, (ushort)(z - 1));
+            CheckAt(lvl, x, (ushort)(y + 1), z);
+            // NOTE: omission of y-1 to match original behaviour
+        }
+
+        // TODO: Stop checking block type and just always call lvl.AddCheck
+        internal static void CheckAt(Level lvl, ushort x, ushort y, ushort z)
+        {
+            int index;
+            BlockID block = lvl.GetBlock(x, y, z, out index);
+
+            switch (block)
+            {
+                case Block.Sapling:
+                case Block.Sand:
+                case Block.Gravel:
+                case Block.Log:
+                case Block.Leaves:
+                case Block.FloatWood:
+                    lvl.AddCheck(index);
+                    break;
+                default:
+                    block = Block.Convert(block);
+                    if (block == Block.Water || block == Block.Lava || (block >= Block.Red && block <= Block.White))
+                    {
+                        lvl.AddCheck(index);
+                    }
+                    break;
+            }
+        }
+
+        public static void DoLeaf(Level lvl, ref PhysInfo C)
+        {
+            // Decaying disabled? Then just remove from the physics list
+
+            // Delay checking for leaf decay for a random amount of time
+            if (C.Data.Data < 5)
+            {
+                Random rand = lvl.physRandom;
+                if (rand.Next(10) == 0) C.Data.Data++;
+                return;
+            }
+
+            // Perform actual leaf decay, then remove from physics list
+            if (DoLeafDecay(lvl, ref C))
+            {
+                // Chance of dropping sapling and apples
+                decimal saplingChance = GetPercentage(0m, 100m);
+                decimal appleChance = GetPercentage(0m, 100m);
+
+                bool dropping = false;
+
+                if (saplingChance <= 5m)
+                {
+                    // Begin sapling fall
+                    lvl.AddUpdate(C.Index, Block.Sapling, default(PhysicsArgs));
+                    dropping = true;
+                }
+
+                if (appleChance <= 0.5m)
+                {
+                    // TODO: Drop apples
+                    //dropping = true;
+                }
+
+                if (!dropping) lvl.AddUpdate(C.Index, Block.Air, default(PhysicsArgs));
+
+                if (lvl.physics > 1) CheckNeighbours(lvl, C.X, C.Y, C.Z);
+            }
+
+            C.Data.Data = PhysicsArgs.RemoveFromChecks;
+        }
+
+        // Radius of box around the given leaf block that is checked for logs
+        const int range = 4;
+        const int blocksPerAxis = range * 2 + 1;
+
+        const int oneX = 1; // index + oneX = (X + 1, Y, Z)
+        const int oneY = blocksPerAxis; // index + oneY = (X, Y + 1, Z)
+        const int oneZ = blocksPerAxis * blocksPerAxis;
+
+        static bool DoLeafDecay(Level lvl, ref PhysInfo C)
+        {
+            int* dists = stackalloc int[blocksPerAxis * blocksPerAxis * blocksPerAxis];
+            ushort x = C.X, y = C.Y, z = C.Z;
+            int idx = 0;
+
+            // The general overview of this algorithm is that it finds all log blocks
+            //  from (x - range, y - range, z - range) to (x + range, y + range, z + range),
+            //  and then tries to find a path from any of those logs to the block at (x, y, z).
+            // Note that these paths can only travel through leaf blocks
+
+            for (int xx = -range; xx <= range; xx++)
+                for (int yy = -range; yy <= range; yy++)
+                    for (int zz = -range; zz <= range; zz++, idx++)
+                    {
+                        int index = lvl.PosToInt((ushort)(x + xx), (ushort)(y + yy), (ushort)(z + zz));
+                        byte type = index < 0 ? Block.Air : lvl.blocks[index];
+
+                        if (type == Block.Log || type == Block.Wood)
+                            dists[idx] = 0;
+                        else if (type == Block.Leaves)
+                            dists[idx] = -2;
+                        else
+                            dists[idx] = -1;
+                    }
+
+            for (int dist = 1; dist <= range; dist++)
+            {
+                idx = 0;
+
+                for (int xx = -range; xx <= range; xx++)
+                    for (int yy = -range; yy <= range; yy++)
+                        for (int zz = -range; zz <= range; zz++, idx++)
+                        {
+                            if (dists[idx] != dist - 1) continue;
+                            // If this block is X-1 dist away from a log, potentially update neighbours as X blocks away from a log
+
+                            if (xx > -range) PropagateDist(dists, dist, idx - oneX);
+                            if (xx < range) PropagateDist(dists, dist, idx + oneX);
+
+                            if (yy > -range) PropagateDist(dists, dist, idx - oneY);
+                            if (yy < range) PropagateDist(dists, dist, idx + oneY);
+
+                            if (zz > -range) PropagateDist(dists, dist, idx - oneZ);
+                            if (zz < range) PropagateDist(dists, dist, idx + oneZ);
+                        }
+            }
+
+            // Calculate index of (0, 0, 0)
+            idx = range * oneX + range * oneY + range * oneZ;
+            return dists[idx] < 0;
+        }
+
+        static void PropagateDist(int* dists, int dist, int index)
+        {
+            // Distances can only propagate through leaf blocks
+            if (dists[index] == -2) dists[index] = dist;
+        }
+
+        public static void DoLog(Level lvl, ref PhysInfo C)
+        {
+            ushort x = C.X, y = C.Y, z = C.Z;
+
+            for (int xx = -range; xx <= range; xx++)
+                for (int yy = -range; yy <= range; yy++)
+                    for (int zz = -range; zz <= range; zz++)
+                    {
+                        int index = lvl.PosToInt((ushort)(x + xx), (ushort)(y + yy), (ushort)(z + zz));
+                        if (index < 0 || lvl.blocks[index] != Block.Leaves) continue;
+
+                        lvl.AddCheck(index);
+                    }
+            C.Data.Data = PhysicsArgs.RemoveFromChecks;
+        }
+    }
+
+    #endregion
+
+    #region Liquid physics
+
     public static class CustomLiquidPhysics
     {
         public static void DoFlood(Level lvl, ref PhysInfo C)
@@ -1975,6 +2251,10 @@ namespace MCGalaxy
             }
         }
     }
+
+    #endregion
+
+    #endregion
 
     public class DropItem
     {
