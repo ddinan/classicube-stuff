@@ -86,6 +86,9 @@ namespace MCGalaxy
             [ConfigBool("gamemode-only", "Survival", true)]
             public static bool GamemodeOnly = false;
 
+            [ConfigString("allowed-map-prefixes", "Survival", "example1_,example2_")]
+            public static string AllowedMapPrefixes = "example1_,example2_";
+
             [ConfigBool("survival-damage", "Survival", true)]
             public static bool SurvivalDamage = true;
 
@@ -155,6 +158,8 @@ namespace MCGalaxy
                 w.WriteLine("# Edit the settings below to modify how the plugin operates.");
                 w.WriteLine("# Whether or not this plugin should be controlled by other gamemode plugins. E.g, SkyWars.");
                 w.WriteLine("gamemode-only = false");
+                w.WriteLine("# If gamemode-only is enabled, all maps with this prefix will not have their inventories wiped when a player leaves.");
+                w.WriteLine("allowed-map-prefixes = example1_,example2_");
                 w.WriteLine("# Whether or not the player can die from natural causes. E.g, drowning.");
                 w.WriteLine("survival-damage = true");
                 w.WriteLine("# Whether or not players can drown.");
@@ -370,6 +375,7 @@ namespace MCGalaxy
                 new ColumnDesc("Slot34", ColumnType.VarChar, 16),
                 new ColumnDesc("Slot35", ColumnType.VarChar, 16),
                 new ColumnDesc("Slot36", ColumnType.VarChar, 16),
+                new ColumnDesc("Level", ColumnType.VarChar, 32),
         };
 
         ColumnDesc[] createChests = new ColumnDesc[] {
@@ -416,7 +422,7 @@ namespace MCGalaxy
         void initDB()
         {
             Database.CreateTable("Potions", createPotions);
-            Database.CreateTable("Inventories3", createInventories);
+            Database.CreateTable("Inventories4", createInventories);
             Database.CreateTable("Chests", createChests);
         }
 
@@ -460,7 +466,7 @@ namespace MCGalaxy
                     BlockID block = pl.GetHeldBlock();
                     string held = Block.GetName(pl, block);
 
-                    List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", pl.truename);
+                    List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", pl.truename, pl.level.name);
 
                     int column = 0;
                     int amount = 0;
@@ -840,7 +846,7 @@ namespace MCGalaxy
 
         public static void UpdateBlockList(Player p, int column)
         {
-            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+            List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
             if (pRows.Count > 0)
             {
@@ -876,13 +882,13 @@ namespace MCGalaxy
                 RemoveChest(p, x, y, z);
             }*/
 
-            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+            List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
             if (pRows.Count == 0)
             {
-                Database.AddRow("Inventories3", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
+                Database.AddRow("Inventories4", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
-                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.truename, GetID(block) + "(" + amount + ")", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36, Level", p.truename, GetID(block) + "(" + amount + ")", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", p.level.name);
 
                 UpdateBlockList(p, 1);
                 return;
@@ -900,7 +906,7 @@ namespace MCGalaxy
 
                 int newCount = pRows[0][column].ToString().StartsWith("0") ? amount : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + amount;
 
-                Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+                Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, GetID(block) + "(" + newCount.ToString() + ")", p.level.name);
 
                 UpdateBlockList(p, column);
                 return;
@@ -955,7 +961,7 @@ namespace MCGalaxy
 
             if (placing)
             {
-                List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+                List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
                 if (pRows.Count == 0)
                 {
@@ -988,13 +994,13 @@ namespace MCGalaxy
 
                     if (newCount == 0)
                     {
-                        Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
+                        Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, "0", p.level.name);
                         p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
                     }
                     else
                     {
                         UpdateBlockList(p, column);
-                        Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, GetID(block) + "(" + newCount.ToString() + ")");
+                        Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, GetID(block) + "(" + newCount.ToString() + ")", p.level.name);
                     }
                 }
             }
@@ -1406,10 +1412,10 @@ namespace MCGalaxy
             Vec3F32 delta = p.Pos.ToVec3F32() - victim.Pos.ToVec3F32();
             float reachSq = 9f; // 3 block reach distance
 
-            // Don't allow clicking on victimayers further away than their reach distance
+            // Don't allow clicking on players further away than their reach distance
             if (delta.LengthSquared > (reachSq + 1)) return false;
 
-            // Check if they can kill victimayers, determined by gamemode victimugins
+            // Check if they can kill players, determined by gamemode plugins
             bool canKill = PvP.Config.GamemodeOnly == false ? true : p.Extras.GetBoolean("PVP_CAN_KILL");
             if (!canKill) return false;
 
@@ -1420,7 +1426,7 @@ namespace MCGalaxy
             string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
             if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
 
-            // If all checks are comvictimete, return true to allow knockback and damage
+            // If all checks are complete, return true to allow knockback and damage
             return true;
         }
 
@@ -1504,14 +1510,26 @@ namespace MCGalaxy
             {
                 if (Config.GamemodeOnly)
                 {
-                    // Delete inventories after round ends
-                    List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
-                    if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
+                    // Additional support for allowing inventory saving between sessions
+                    string[] prefixes = Config.AllowedMapPrefixes.Split(',');
+
+                    bool match = false;
+                    foreach (string prefix in prefixes)
+                    {
+                        if (p.level.name.StartsWith(prefix)) match = true;
+                    }
+
+                    if (!match)
+                    {
+                        // Delete inventories after round ends
+                        List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
+                        if (pRows.Count > 0) Database.Execute("DELETE FROM Inventories4 WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
+                    }
                 }
 
                 if (p.level.Config.MOTD.ToLower().Contains("mining=true"))
                 {
-                    List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+                    List<string[]> rows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
                     if (rows.Count == 0)
                     {
@@ -2057,7 +2075,7 @@ namespace MCGalaxy
 
         bool HasIngredients(Player p, string[] ingredientList, int amount)
         {
-            List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+            List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
             foreach (string ingredient in ingredientList)
             {
@@ -2087,14 +2105,14 @@ namespace MCGalaxy
 
                         if (newCount == 0)
                         {
-                            Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, "0");
+                            Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, "0", p.level.name);
                             p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
                         }
 
                         else
                         {
                             PvP.UpdateBlockList(p, column);
-                            Database.UpdateRows("Inventories3", "Slot" + column.ToString() + "=@1", "WHERE NAME=@0", p.truename, PvP.GetID(block) + "(" + newCount.ToString() + ")");
+                            Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, PvP.GetID(block) + "(" + newCount.ToString() + ")", p.level.name);
                         }
 
                         p.Message("%c-" + ingredientAmount + " %7" + ingredientName);
@@ -2176,7 +2194,7 @@ namespace MCGalaxy
             if (args.Length == 0)
             {
 
-                List<string[]> pRows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
+                List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
                 if (pRows.Count == 0)
                 {
@@ -2203,8 +2221,8 @@ namespace MCGalaxy
             {
                 if (args[0].ToLower() == "clear")
                 {
-                    List<string[]> rows = Database.GetRows("Inventories3", "*", "WHERE Name=@0", p.truename);
-                    if (rows.Count > 0) Database.Execute("DELETE FROM Inventories3 WHERE Name=@0", p.truename);
+                    List<string[]> rows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
+                    if (rows.Count > 0) Database.Execute("DELETE FROM Inventories4 WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
                     p.Message("Inventory cleared.");
                 }
