@@ -248,6 +248,7 @@ namespace MCGalaxy
             // Register commands
             Command.Register(new CmdCraft());
             Command.Register(new CmdPvP());
+            Command.Register(new CmdRecipes());
             Command.Register(new CmdSafeZone());
             Command.Register(new CmdWeapon());
             Command.Register(new CmdTool());
@@ -282,6 +283,7 @@ namespace MCGalaxy
             // Unload commands
             Command.Unregister(Command.Find("Craft"));
             Command.Unregister(Command.Find("PvP"));
+            Command.Unregister(Command.Find("Recipes"));
             Command.Unregister(Command.Find("SafeZone"));
             Command.Unregister(Command.Find("Weapon"));
             Command.Unregister(Command.Find("Tool"));
@@ -2353,7 +2355,7 @@ namespace MCGalaxy
         public override string type { get { return "Other"; } }
         public override bool museumUsable { get { return false; } }
 
-        bool HasIngredients(Player p, string[] ingredientList, int amount)
+        public static bool HasIngredients(Player p, string[] ingredientList, int amount)
         {
             List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
@@ -2422,13 +2424,18 @@ namespace MCGalaxy
                 return;
             }
 
+            HandleMake(p, args);
+        }
+
+        void HandleMake(Player p, string[] args)
+        {
             int amount = int.Parse(args[1]);
 
             string[] recipe = PvP.getRecipe(args[0]).Split(' ');
 
             if (recipe[0] == "0 0")
             {
-                p.Message("%SInvalid item. See %b/Craft list %Sfor more information.");
+                p.Message("%SInvalid item. See %b/Recipes %Sfor more information.");
                 return;
             }
 
@@ -2456,7 +2463,7 @@ namespace MCGalaxy
         public override void Help(Player p)
         {
             p.Message("%T/Craft [item] [amount] %H- Crafts [amount] of [item].");
-            p.Message("%T/Craft list %H- Shows all available items that you can craft.");
+            p.Message("%HFor information on recipes, type %b/Recipes%H.");
         }
     }
 
@@ -2600,6 +2607,95 @@ namespace MCGalaxy
         {
             p.Message("%T/PvP add <map> %H- Adds a map to the PvP map list.");
             p.Message("%T/PvP del <map> %H- Deletes a map from the PvP map list.");
+        }
+    }
+
+    public sealed class CmdRecipes : Command2
+    {
+        public override string name { get { return "Recipes"; } }
+        public override string type { get { return "Other"; } }
+        public override bool museumUsable { get { return false; } }
+
+        public override void Use(Player p, string message, CommandData data)
+        {
+            string[] args = message.SplitSpaces();
+
+            if (message.Length == 0)
+            {
+                HandleList(p);
+                return;
+            }
+
+            if (args[0].CaselessEq("all"))
+            {
+                HandleAll(p);
+                return;
+            }
+
+            Help(p);
+        }
+
+        void HandleAll(Player p)
+        {
+            p.Message("%7All items:");
+            p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
+
+            for (int i = 0; i < PvP.recipes.Length; i++)
+            {
+                if (PvP.recipes[i, 0] == null) return;
+
+                p.Message("%7- %b" + PvP.recipes[i, 0] + " %a" + PvP.recipes[i, 1]);
+            }
+        }
+
+        public static bool GetBlock(Player p, string input, out BlockID block)
+        {
+            block = Block.Parse(p, input);
+            return block != Block.Invalid;
+        }
+
+        void HandleList(Player p)
+        {
+            // Check what materials the player has
+            List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
+
+            p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
+
+            for (int i = 0; i < PvP.recipes.Length; i++)
+            {
+                if (PvP.recipes[i, 0] == null) return;
+
+                string[] ingredientList = PvP.recipes[i, 1].Split(','); // ingredient1:amount,ingredient2:amount,ingredient3:amount
+
+                foreach (string ingredient in ingredientList)
+                {
+                    string ingredientName = ingredient.Split(':')[0];
+                    int ingredientAmount = (int.Parse(ingredient.Split(':')[1]));
+
+                    if (pRows.Count > 0)
+                    {
+                        ingredientName = PvP.ReplaceSuffixes(ingredientName); // Remove suffixes such as -N, -U etc
+                        BlockID block;
+                        if (!GetBlock(p, ingredientName, out block)) return;
+
+                        int column = PvP.FindActiveSlot(pRows[0], PvP.GetID(block));
+
+                        if (column == 0) return;
+
+                        // Check how many of this material the player has
+                        int number = Int32.Parse(pRows[0][column].ToString().Replace(PvP.GetID(block), "").Replace("(", "").Replace(")", ""));
+
+                        // If player has sufficient materials, list
+                        if (number >= ingredientAmount) p.Message("%7- %b" + PvP.recipes[i, 0] + " %a" + PvP.recipes[i, 1]);
+                    }
+                }
+            }
+        }
+
+        public override void Help(Player p)
+        {
+            p.Message("%T/Recipes %H- Lists all items that you can currently craft.");
+            p.Message("%T/Recipes all %H- Lists all possible items that can be crafted.");
         }
     }
 
