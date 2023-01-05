@@ -60,11 +60,12 @@ using MCGalaxy.Blocks.Physics;
 using MCGalaxy.Bots;
 using MCGalaxy.Commands;
 using MCGalaxy.Config;
+using MCGalaxy.Drawing.Ops;
 using MCGalaxy.Events;
 using MCGalaxy.Events.LevelEvents;
 using MCGalaxy.Events.PlayerEvents;
-using MCGalaxy.Drawing.Ops;
 using MCGalaxy.Games;
+using MCGalaxy.Generator.Foliage;
 using MCGalaxy.Maths;
 using MCGalaxy.Network;
 using MCGalaxy.Scripting;
@@ -103,6 +104,9 @@ namespace MCGalaxy
 
             [ConfigBool("hunger", "Survival", true)]
             public static bool Hunger = true;
+
+            [ConfigBool("void-kills", "Survival", true)]
+            public static bool VoidKills = true;
 
             [ConfigBool("mining", "Survival", true)]
             public static bool Mining = true;
@@ -168,6 +172,8 @@ namespace MCGalaxy
                 w.WriteLine("hunger = true");
                 w.WriteLine("# Whether or not players take damage when falling from great heights.");
                 w.WriteLine("fall-damage = true");
+                w.WriteLine("# Whether or not players will die if their Y coordinate is below 0.");
+                w.WriteLine("void-kills = false");
                 w.WriteLine("# Whether or not players regenerate health.");
                 w.WriteLine("regeneration = true");
                 w.WriteLine("# Whether or not mining is enabled.");
@@ -221,6 +227,8 @@ namespace MCGalaxy
             // Register events
             if (Config.CustomPhysics)
             {
+                OnBlockHandlersUpdatedEvent.Register(OnBlockHandlersUpdated, Priority.Low);
+
                 Level[] levels = LevelInfo.Loaded.Items;
                 foreach (Level lvl in levels)
                 {
@@ -228,7 +236,7 @@ namespace MCGalaxy
                 }
             }
 
-            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
+            if (Config.FallDamage || Config.Hunger || Config.VoidKills) OnPlayerMoveEvent.Register(HandlePlayerMove, Priority.High);
 
             OnBlockChangingEvent.Register(HandleBlockChanged, Priority.Low);
             OnGettingMotdEvent.Register(HandleGettingMotd, Priority.High);
@@ -270,7 +278,12 @@ namespace MCGalaxy
         public override void Unload(bool shutdown)
         {
             // Unload events
-            if (Config.FallDamage || Config.Hunger) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
+            if (Config.CustomPhysics)
+            {
+                OnBlockHandlersUpdatedEvent.Unregister(OnBlockHandlersUpdated);
+            }
+
+            if (Config.FallDamage || Config.Hunger || Config.VoidKills) OnPlayerMoveEvent.Unregister(HandlePlayerMove);
 
             OnBlockChangingEvent.Unregister(HandleBlockChanged);
             OnGettingMotdEvent.Unregister(HandleGettingMotd);
@@ -307,7 +320,12 @@ namespace MCGalaxy
             lvl.PhysicsHandlers[Block.FromRaw((ushort)Config.CustomWaterBlock)] = CustomLiquidPhysics.DoFlood;
             lvl.PhysicsHandlers[Block.Leaves] = CustomLeafPhysics.DoLeaf;
             lvl.PhysicsHandlers[Block.Log] = CustomLeafPhysics.DoLog;
-            lvl.PhysicsHandlers[Block.Sapling] = CustomFallPhysics.DoFall;
+            lvl.PhysicsHandlers[Block.Sapling] = CustomSaplingPhysics.DoSapling;
+        }
+
+        static void OnBlockHandlersUpdated(Level lvl, BlockID block)
+        {
+            if (maplist.Contains(lvl.name)) AddCustomPhysics(lvl);
         }
 
         static void HandleOnLevelLoaded(Level lvl)
@@ -553,7 +571,8 @@ namespace MCGalaxy
         void KillPlayer(Player p, string type)
         {
             if (type == "drown") p.HandleDeath(Block.Water);
-            if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom death message
+            if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom fall death message
+            if (type == "void") p.HandleDeath(Block.Orange); // Horrible hack to display custom void death message
             else p.HandleDeath(Block.Cobblestone);
 
             if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
@@ -680,6 +699,8 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
+                if (Config.VoidKills && next.Y < 0) KillPlayer(p, "void"); // Player fell out of the world
+
                 if (Config.Hunger && p.level.Config.MOTD.ToLower().Contains("+hunger"))
                 {
                     int hunger = p.Extras.GetInt("HUNGER");
@@ -1954,52 +1975,6 @@ namespace MCGalaxy
 
     #region Physics
 
-    #region Fall physics
-
-    public static class CustomFallPhysics
-    {
-        public static void DoFall(Level lvl, ref PhysInfo C)
-        {
-            ushort x = C.X, y = C.Y, z = C.Z;
-            int index = C.Index;
-            bool movedDown = false;
-            ushort yCur = y;
-
-            do
-            {
-                index = lvl.IntOffset(index, 0, -1, 0); yCur--; // Get block below each loop
-                BlockID cur = lvl.GetBlock(x, yCur, z);
-                if (cur == Block.Invalid) break;
-                bool hitBlock = false;
-
-                switch (cur)
-                {
-                    case Block.Air:
-                        movedDown = true;
-                        break;
-                    default:
-                        hitBlock = true;
-                        break;
-                }
-                if (hitBlock || lvl.physics > 1) break;
-            } while (true);
-
-            if (movedDown)
-            {
-                lvl.AddUpdate(C.Index, Block.Air, default(PhysicsArgs));
-                if (lvl.physics > 1)
-                    lvl.AddUpdate(index, C.Block);
-
-                else
-                    lvl.AddUpdate(lvl.IntOffset(index, 0, -1, 0), C.Block);
-            }
-
-            C.Data.Data = PhysicsArgs.RemoveFromChecks;
-        }
-    }
-
-    #endregion
-
     #region Leaf physics
 
     public unsafe static class CustomLeafPhysics
@@ -2251,6 +2226,74 @@ namespace MCGalaxy
                 default:
                     break;
             }
+        }
+    }
+
+    #endregion
+
+    #region Sapling physics
+
+    public static class CustomSaplingPhysics
+    {
+        public static void DoSapling(Level lvl, ref PhysInfo C)
+        {
+            ushort x = C.X, y = C.Y, z = C.Z;
+            int index = C.Index;
+            bool movedDown = false;
+            ushort yCur = y;
+
+            Random rand = lvl.physRandom;
+
+            do
+            {
+                index = lvl.IntOffset(index, 0, -1, 0); yCur--; // Get block below each loop
+                BlockID cur = lvl.GetBlock(x, yCur, z);
+                if (cur == Block.Invalid) break;
+                bool hitBlock = false;
+
+                switch (cur)
+                {
+                    case Block.Air:
+                        movedDown = true;
+                        break;
+                    default:
+                        hitBlock = true;
+                        break;
+                }
+                if (hitBlock || lvl.physics > 1) break;
+            } while (true);
+
+            if (movedDown)
+            {
+                lvl.AddUpdate(C.Index, Block.Air, default(PhysicsArgs));
+                if (lvl.physics > 1)
+                    lvl.AddUpdate(index, C.Block);
+
+                else
+                    lvl.AddUpdate(lvl.IntOffset(index, 0, -1, 0), C.Block);
+            }
+
+            if (C.Data.Data < 20)
+            {
+                if (rand.Next(20) == 0) C.Data.Data++;
+                return;
+            }
+
+            if (C.Data.Data == 20)
+            {
+                lvl.SetTile(x, y, z, Block.Air);
+                Tree tree = Tree.Find(lvl.Config.TreeType);
+                if (tree == null) tree = new NormalTree();
+
+                tree.SetData(rand, tree.DefaultSize(rand));
+                tree.Generate(x, y, z, (xT, yT, zT, bT) =>
+                {
+                    if (!lvl.IsAirAt(xT, yT, zT)) return;
+                    lvl.Blockchange(xT, yT, zT, (ushort)bT);
+                });
+            }
+
+            C.Data.Data = PhysicsArgs.RemoveFromChecks;
         }
     }
 
@@ -2559,7 +2602,7 @@ namespace MCGalaxy
                 return;
             }
 
-            if (!HasExtraPerm(p, data.Rank, 1)) return;
+            if (!HasExtraPerm(p, data.Rank, 1)) { p.Message("%cNo permission."); return; };
 
             string pvpMap = args[1];
 
