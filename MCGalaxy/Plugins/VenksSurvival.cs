@@ -321,6 +321,7 @@ namespace MCGalaxy
             lvl.PhysicsHandlers[Block.Leaves] = CustomLeafPhysics.DoLeaf;
             lvl.PhysicsHandlers[Block.Log] = CustomLeafPhysics.DoLog;
             lvl.PhysicsHandlers[Block.Sapling] = CustomSaplingPhysics.DoSapling;
+            lvl.PhysicsHandlers[Block.FromRaw(83)] = SugarCanePhysics.DoSugarCane;
         }
 
         static void OnBlockHandlersUpdated(Level lvl, BlockID block)
@@ -2298,6 +2299,56 @@ namespace MCGalaxy
     }
 
     #endregion
+
+    #endregion
+
+    #region Sugar cane physics
+
+    public static class SugarCanePhysics
+    {
+        public static void DoSugarCane(Level lvl, ref PhysInfo C)
+        {
+            ushort x = C.X, y = C.Y, z = C.Z;
+
+            Random rand = lvl.physRandom;
+
+            BlockID ground = lvl.GetBlock(x, (ushort)(y - 1), z);
+
+            if (ground != Block.Grass && ground != Block.Dirt && ground != Block.Sand) return; // Only apply physics to the root block
+
+            // Water blocks surrounding the ground block
+            BlockID g1 = lvl.GetBlock((ushort)(x + 1), (ushort)(y - 1), (ushort)(z + 1));
+            BlockID g2 = lvl.GetBlock((ushort)(x + 1), (ushort)(y - 1), (ushort)(z - 1));
+            BlockID g3 = lvl.GetBlock((ushort)(x - 1), (ushort)(y - 1), (ushort)(z + 1));
+            BlockID g4 = lvl.GetBlock((ushort)(x - 1), (ushort)(y - 1), (ushort)(z - 1));
+
+            // Sugar cane blocks above root block
+            BlockID a1 = lvl.GetBlock(x, (ushort)(y + 1), z);
+            BlockID a2 = lvl.GetBlock(x, (ushort)(y + 2), z);
+
+            // Don't grow if ground is not watered
+            if (!(g1 == Block.Water || g1 == Block.StillWater || g1 == Block.FromRaw((ushort)PvP.Config.CustomWaterBlock))
+            && !(g2 == Block.Water || g2 == Block.StillWater || g2 == Block.FromRaw((ushort)PvP.Config.CustomWaterBlock))
+            && !(g3 == Block.Water || g3 == Block.StillWater || g3 == Block.FromRaw((ushort)PvP.Config.CustomWaterBlock))
+            && !(g4 == Block.Water || g4 == Block.StillWater || g4 == Block.FromRaw((ushort)PvP.Config.CustomWaterBlock))) return;
+
+            int height = 1;
+
+            if (a1 == Block.FromRaw(83) || a2 == Block.FromRaw(83)) height++;
+
+            // Height stops at 3 blocks
+            if (height < 3)
+            {
+                if (rand.Next(25) == 0)
+                {
+                    lvl.Blockchange(Player.Console, x, (ushort)(y + height), z, Block.FromRaw(83));
+                }
+                return;
+            }
+
+            C.Data.Data = PhysicsArgs.RemoveFromChecks;
+        }
+    }
 
     #endregion
 
