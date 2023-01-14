@@ -2245,6 +2245,10 @@ namespace MCGalaxy
 
             Random rand = lvl.physRandom;
 
+            BlockID ground = lvl.GetBlock(x, (ushort)(y - 1), z);
+
+            if (ground != Block.Grass && ground != Block.Dirt) return; // Only apply physics if block is on soil
+
             do
             {
                 index = lvl.IntOffset(index, 0, -1, 0); yCur--; // Get block below each loop
