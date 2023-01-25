@@ -20,6 +20,7 @@ using MCGalaxy.Commands;
 using MCGalaxy.Commands.Fun;
 using MCGalaxy.Config;
 using MCGalaxy.Events.PlayerEvents;
+using MCGalaxy.Events.ServerEvents;
 using MCGalaxy.Maths;
 using MCGalaxy.Network;
 using BlockID = System.UInt16;
@@ -64,12 +65,17 @@ namespace MCGalaxy.Games
     public sealed class NameOfGamemodePlugin : Plugin
     {
         public override string creator { get { return "Venk"; } }
-        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.6"; } }
         public override string name { get { return "NameOfGamemode"; } }
 
         Command cmd;
         public override void Load(bool startup)
         {
+            OnConfigUpdatedEvent.Register(OnConfigUpdated, Priority.Low);
+
+            NOGGame.Instance.Config.Path = "plugins/NameOfGamemode/game.properties";
+            OnConfigUpdated();
+
             cmd = new CmdNameOfGamemode();
             Command.Register(cmd);
 
@@ -80,9 +86,16 @@ namespace MCGalaxy.Games
 
         public override void Unload(bool shutdown)
         {
+            OnConfigUpdatedEvent.Unregister(OnConfigUpdated);
+
             Command.Unregister(cmd);
             RoundsGame game = NOGGame.Instance;
             if (game.Running) game.End();
+        }
+
+        void OnConfigUpdated()
+        {
+            NOGGame.Instance.Config.Load();
         }
     }
 
@@ -90,7 +103,6 @@ namespace MCGalaxy.Games
     {
         public override bool AllowAutoload { get { return true; } }
         protected override string GameName { get { return "NameOfGamemode"; } }
-        protected override string PropsPath { get { return "./plugins/NameOfGamemode/game.properties"; } }
     }
 
     public sealed partial class NOGGame : RoundsGame
@@ -100,12 +112,17 @@ namespace MCGalaxy.Games
         public static NOGGame Instance = new NOGGame();
         public NOGGame() { Picker = new LevelPicker(); }
 
-        public static NOGConfig Config = new NOGConfig();
+        public NOGConfig Config = new NOGConfig();
         public override RoundsGameConfig GetConfig() { return Config; }
 
         public override string GameName { get { return "NameOfGamemode"; } }
         public int Interval = 1000;
         public NOGMapConfig cfg = new NOGMapConfig();
+
+        protected override string WelcomeMessage
+        {
+            get { return ""; } // Message shown to players when connecting
+        }
 
         // =========================================== CONFIG =======================================
 
