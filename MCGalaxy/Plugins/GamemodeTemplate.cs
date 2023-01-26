@@ -68,16 +68,34 @@ namespace MCGalaxy.Games
         public override string MCGalaxy_Version { get { return "1.9.4.6"; } }
         public override string name { get { return "NameOfGamemode"; } }
 
-        Command cmd;
+        public static ChatToken NameOfGamemodeToken;
+
+        static string TokenNameOfGamemode(Player p)
+        {
+            Player[] players = PlayerInfo.Online.Items;
+            int count = 0;
+
+            foreach (Player pl in players)
+            {
+                if (!NOGGame.Instance.Running) return "0";
+                if (pl.level.name == NOGGame.Instance.Map.name) count++;
+            }
+
+            return count.ToString();
+        }
+
         public override void Load(bool startup)
         {
+            // Add token into the server
+            NameOfGamemodeToken = new ChatToken("$nameofgamemode", "NameOfGamemode", TokenNameOfGamemode);
+            ChatTokens.Standard.Add(NameOfGamemodeToken);
+
             OnConfigUpdatedEvent.Register(OnConfigUpdated, Priority.Low);
 
             NOGGame.Instance.Config.Path = "plugins/NameOfGamemode/game.properties";
             OnConfigUpdated();
 
-            cmd = new CmdNameOfGamemode();
-            Command.Register(cmd);
+            Command.Register(new CmdNameOfGamemode());
 
             RoundsGame game = NOGGame.Instance;
             game.GetConfig().Load();
@@ -86,9 +104,12 @@ namespace MCGalaxy.Games
 
         public override void Unload(bool shutdown)
         {
+            ChatTokens.Standard.Remove(NameOfGamemodeToken);
+
             OnConfigUpdatedEvent.Unregister(OnConfigUpdated);
 
-            Command.Unregister(cmd);
+            Command.Unregister(Command.Find("NameOfGamemode"));
+
             RoundsGame game = NOGGame.Instance;
             if (game.Running) game.End();
         }
