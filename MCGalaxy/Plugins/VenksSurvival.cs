@@ -79,7 +79,7 @@ namespace MCGalaxy
     public class PvP : Plugin
     {
         public override string name { get { return "&aVenk's Survival%S"; } } // To unload /punload Survival
-        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.6"; } }
         public override string creator { get { return "Venk and Sirvoid"; } }
 
         public class Config
@@ -244,7 +244,7 @@ namespace MCGalaxy
             OnLevelLoadedEvent.Register(HandleOnLevelLoaded, Priority.Low);
             OnPlayerClickEvent.Register(HandleBlockClick, Priority.Low);
             OnPlayerClickEvent.Register(HandlePlayerClick, Priority.Low);
-            OnPlayerDeathEvent.Register(HandlePlayerDeath, Priority.High);
+            OnPlayerDyingEvent.Register(HandlePlayerDying, Priority.High);
 
             // Queue tasks
             if (Config.Drowning) Server.MainScheduler.QueueRepeat(HandleDrown, null, TimeSpan.FromSeconds(1));
@@ -291,7 +291,7 @@ namespace MCGalaxy
             OnLevelLoadedEvent.Unregister(HandleOnLevelLoaded);
             OnPlayerClickEvent.Unregister(HandleBlockClick);
             OnPlayerClickEvent.Unregister(HandlePlayerClick);
-            OnPlayerDeathEvent.Unregister(HandlePlayerDeath);
+            OnPlayerDyingEvent.Unregister(HandlePlayerDying);
 
             // Unload commands
             Command.Unregister(Command.Find("Craft"));
@@ -516,7 +516,7 @@ namespace MCGalaxy
             }
         }
 
-        void HandlePlayerDeath(Player p, BlockID deathblock)
+        void HandlePlayerDying(Player p, BlockID deathblock, ref bool cancel)
         {
             if (!maplist.Contains(p.level.name)) return;
             ResetPlayerState(p);
@@ -562,7 +562,7 @@ namespace MCGalaxy
 
             if (health <= 0) KillPlayer(p, type);
 
-            else if (p.appName.CaselessContains("cef"))
+            else if (p.Session.ClientName().CaselessContains("cef"))
             {
                 if (type == "drown") p.Message("cef resume -n hit"); // Play hit sound effect
                 if (type == "fall") p.Message("cef resume -n fall"); // Play fall sound effect
@@ -576,7 +576,7 @@ namespace MCGalaxy
             if (type == "void") p.HandleDeath(Block.Orange); // Horrible hack to display custom void death message
             else p.HandleDeath(Block.Cobblestone);
 
-            if (p.appName.CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
+            if (p.Session.ClientName().CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
         }
 
         void HandleDrown(SchedulerTask task)
@@ -674,7 +674,7 @@ namespace MCGalaxy
                         // If player has 5 or less hearts left, don't bother doing damage
                         if (health <= 10) continue;
 
-                        if (pl.appName.CaselessContains("cef")) pl.Message("cef resume -n hit"); // Play hit sound effect
+                        if (pl.Session.ClientName().CaselessContains("cef")) pl.Message("cef resume -n hit"); // Play hit sound effect
                         pl.Extras["SURVIVAL_HEALTH"] = health - 1;
                     }
                 }
@@ -768,7 +768,7 @@ namespace MCGalaxy
                     if (below.ToLower().Contains("water") && below2.ToLower().Contains("water"))
                     {
                         int fall = p.Extras.GetInt("FALL_START") - y;
-                        if (fallDamage(fall) > 0 && p.appName.CaselessContains("cef")) p.Message("cef resume -n splash"); // Play splash sound effect
+                        if (fallDamage(fall) > 0 && p.Session.ClientName().CaselessContains("cef")) p.Message("cef resume -n splash"); // Play splash sound effect
                         p.Extras["FALLING"] = false;
                         p.Extras["FALL_START"] = y;
                         return;
@@ -1145,7 +1145,7 @@ namespace MCGalaxy
 
                         string[] blockstats = getBlockStats((byte)clickedBlock + "").Split(' ');
                         //p.Message(blockstats[2]);
-                        string[] toolstats = getToolStats((byte)b + "").Split(' ');
+                        string[] toolstats = getToolStats(Block.GetName(p, b)).Split(' ');
 
                         //p.Message("block type: " + blockstats[1] + ", hard: " + blockstats[2] + ", id: " +  clickedBlock);
                         //p.Message("tool type: " + toolstats[3] + ", hard: " + toolstats[2] + ", speed %b" + toolstats[1] + "%S, id: " +  toolstats[0]);
@@ -1211,12 +1211,13 @@ namespace MCGalaxy
 
                         if (toolstats[2] == "0")
                         {
+                            p.Message("no tool");
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 140) / toolSpeed;
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
-                            // 140ms per hit. E.g, leaves takes 2 hits so 180ms to break
+                            // 140ms per hit. E.g, leaves takes 2 hits so 280ms to break
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
@@ -1252,7 +1253,7 @@ namespace MCGalaxy
                             int toolSpeed = Int32.Parse(toolstats[2]);
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 140) / toolSpeed;
-                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
+                            p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
@@ -1573,7 +1574,7 @@ namespace MCGalaxy
             // If player has the CEF plugin, add sound effects
             if (Config.FallDamage)
             {
-                if (p.appName.CaselessContains("cef"))
+                if (p.Session.ClientName().CaselessContains("cef"))
                 {
                     p.Message("cef create -n fall -gasq https://youtu.be/uUkuYsl5JSY");
                     p.Message("cef create -n death -gasq https://youtu.be/D-wx2WQsmLU");
@@ -2245,10 +2246,6 @@ namespace MCGalaxy
 
             Random rand = lvl.physRandom;
 
-            BlockID ground = lvl.GetBlock(x, (ushort)(y - 1), z);
-
-            if (ground != Block.Grass && ground != Block.Dirt) return; // Only apply physics if block is on soil
-
             do
             {
                 index = lvl.IntOffset(index, 0, -1, 0); yCur--; // Get block below each loop
@@ -2278,6 +2275,10 @@ namespace MCGalaxy
                     lvl.AddUpdate(lvl.IntOffset(index, 0, -1, 0), C.Block);
             }
 
+            BlockID ground = lvl.GetBlock(x, (ushort)(y - 1), z);
+
+            if (ground != Block.Grass && ground != Block.Dirt) return; // Only apply physics if block is on soil
+
             if (C.Data.Data < 20)
             {
                 if (rand.Next(20) == 0) C.Data.Data++;
@@ -2304,8 +2305,6 @@ namespace MCGalaxy
 
     #endregion
 
-    #endregion
-
     #region Sugar cane physics
 
     public static class SugarCanePhysics
@@ -2321,10 +2320,10 @@ namespace MCGalaxy
             if (ground != Block.Grass && ground != Block.Dirt && ground != Block.Sand) return; // Only apply physics to the root block
 
             // Water blocks surrounding the ground block
-            BlockID g1 = lvl.GetBlock((ushort)(x + 1), (ushort)(y - 1), (ushort)(z + 1));
-            BlockID g2 = lvl.GetBlock((ushort)(x + 1), (ushort)(y - 1), (ushort)(z - 1));
-            BlockID g3 = lvl.GetBlock((ushort)(x - 1), (ushort)(y - 1), (ushort)(z + 1));
-            BlockID g4 = lvl.GetBlock((ushort)(x - 1), (ushort)(y - 1), (ushort)(z - 1));
+            BlockID g1 = lvl.GetBlock((ushort)(x + 1), (ushort)(y - 1), z);
+            BlockID g2 = lvl.GetBlock((ushort)(x - 1), (ushort)(y - 1), z);
+            BlockID g3 = lvl.GetBlock(x, (ushort)(y - 1), (ushort)(z + 1));
+            BlockID g4 = lvl.GetBlock(x, (ushort)(y - 1), (ushort)(z - 1));
 
             // Sugar cane blocks above root block
             BlockID a1 = lvl.GetBlock(x, (ushort)(y + 1), z);
@@ -2353,6 +2352,8 @@ namespace MCGalaxy
             C.Data.Data = PhysicsArgs.RemoveFromChecks;
         }
     }
+
+    #endregion
 
     #endregion
 
@@ -3022,9 +3023,13 @@ namespace MCGalaxy
         {
             if (args.Length == 1)
             {
-                p.Message("You need to specify an ID for the tool. E.g, '1' for stone.");
+                p.Message("You need to specify the name of the tool. E.g, 'StonePickaxe' (block with this name must exist).");
                 return;
             }
+
+            BlockID block;
+            if (!CommandParser.GetBlock(p, args[1], out block)) return; // Ensure block exists
+
             if (args.Length == 2)
             {
                 p.Message("You need to specify the speed that the weapon mines at. E.g, '1' for normal speed, '2' for 2x speed.");
