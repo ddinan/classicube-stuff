@@ -108,7 +108,7 @@ namespace MCGalaxy.Games
             NOGGame.Instance.Config.Path = "plugins/NameOfGamemode/game.properties";
             OnConfigUpdated();
 
-            if (NOGGame.customStats) Database.CreateTable("Stats_NameOfGamemode", createDatabase);
+            if (NOGGame.customStats) Database.CreateTable("Stats_NameOfGamemode", createDatabase); // Initialize database for custom stats
 
             Command.Register(new CmdNameOfGamemode());
 
@@ -377,7 +377,7 @@ namespace MCGalaxy.Games
 
                         if (rows.Count == 0)
                         {
-                            Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned", pl.truename, 1, 0, 0, 0);
+                            Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned, Kills", pl.truename, 1, 0, 0, 0);
                         }
 
                         else
@@ -456,7 +456,7 @@ namespace MCGalaxy.Games
 
                     if (rows.Count == 0)
                     {
-                        Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned", winner.truename, 1, 1, 0, 0);
+                        Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned, Kills", winner.truename, 1, 1, 0, 0);
                     }
 
                     else
@@ -594,6 +594,7 @@ namespace MCGalaxy.Games
                 p.Message("%Hloot and click on people to attack them.");
                 p.Message("%HLast person standing wins the game.");
             }
+
             else
             {
                 base.Help(p, message);
