@@ -44,6 +44,13 @@
   IF YOU WANT A DAY-NIGHT CYCLE:
   1. Download my DayNightCycle plugin: https://github.com/ddinan/ClassiCube-Stuff/blob/master/MCGalaxy/Plugins/DayNightCycle.cs.
   2. Include "+daynightcycle" in /map motd.
+
+  IF YOU WANT TO USE THE CUSTOM PlayerKilledByPlayer EVENT (for developers):
+  1. Rename 'VenkLib.cs' to '_VenkLib.cs' and 'VenksSurvival.cs' to '_VenksSurvival.cs'.
+  2. Also rename any .dll files if there are any.
+  3. Register the event in your plugin's Load() method OnPlayerKilledByPlayerEvent.Register(HandlePlayerKilledByPlayer, Priority.Low);
+  4. Create a handler method static void HandlePlayerKilledByPlayer(Player p, Player killer) { ... }
+  5. Unregister the event in your plugin's Unload() method OnPlayerKilledByPlayerEvent.Unregister(HandlePlayerKilledByPlayer);
   
   TODO:
   1. Can still hit twice occasionally... let's disguise that as a critical hit for now?
@@ -79,7 +86,7 @@ namespace MCGalaxy
     public class PvP : Plugin
     {
         public override string name { get { return "&aVenk's Survival%S"; } } // To unload /punload Survival
-        public override string MCGalaxy_Version { get { return "1.9.4.6"; } }
+        public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
         public override string creator { get { return "Venk and Sirvoid"; } }
 
         public class Config
@@ -552,7 +559,7 @@ namespace MCGalaxy
             return "";
         }
 
-        void DoDamage(Player p, int damage, string type)
+        void DoDamage(Player p, int damage, string type, Player killer)
         {
             int health = p.Extras.GetInt("SURVIVAL_HEALTH");
             p.Extras["SURVIVAL_HEALTH"] = health - damage;
@@ -560,7 +567,7 @@ namespace MCGalaxy
 
             p.SendCpeMessage(CpeMessageType.BottomRight1, GetHealthBar(health));
 
-            if (health <= 0) KillPlayer(p, type);
+            if (health <= 0) KillPlayer(p, type, killer);
 
             else if (p.Session.ClientName().CaselessContains("cef"))
             {
@@ -569,12 +576,17 @@ namespace MCGalaxy
             }
         }
 
-        void KillPlayer(Player p, string type)
+        void KillPlayer(Player p, string type, Player killer)
         {
             if (type == "drown") p.HandleDeath(Block.Water);
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom fall death message
             if (type == "void") p.HandleDeath(Block.Orange); // Horrible hack to display custom void death message
             else p.HandleDeath(Block.Cobblestone);
+
+            if (type == "pvp" & killer != null)
+            {
+                OnPlayerKilledByPlayerEvent.Call(p, killer);
+            }
 
             if (p.Session.ClientName().CaselessContains("cef")) p.Message("cef resume -n death"); // Play death sound effect
         }
@@ -612,7 +624,7 @@ namespace MCGalaxy
                         // (10 - number) + 1)
 
                         // If player is out of air, start doing damage
-                        if (air < 0) DoDamage(pl, 1, "drown");
+                        if (air < 0) DoDamage(pl, 1, "drown", null);
                     }
                     else
                     {
@@ -700,7 +712,7 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
-                if (Config.VoidKills && next.Y < 0) KillPlayer(p, "void"); // Player fell out of the world
+                if (Config.VoidKills && next.Y < 0) KillPlayer(p, "void", null); // Player fell out of the world
 
                 if (Config.Hunger && p.level.Config.MOTD.ToLower().Contains("+hunger"))
                 {
@@ -786,7 +798,7 @@ namespace MCGalaxy
                         {
                             int fall = p.Extras.GetInt("FALL_START") - y;
 
-                            if (fallDamage(fall) > 0) DoDamage(p, fallDamage(fall), "fall");
+                            if (fallDamage(fall) > 0) DoDamage(p, fallDamage(fall), "fall", null);
 
                             // Reset extra variables
                             p.Extras["FALLING"] = false;
@@ -1545,7 +1557,7 @@ namespace MCGalaxy
 
             // TODO: Weapons
             int damage = 1;
-            if (!p.level.Config.MOTD.CaselessContains("-damage")) DoDamage(victim, damage, "pvp");
+            if (!p.level.Config.MOTD.CaselessContains("-damage")) DoDamage(victim, damage, "pvp", p);
 
             // Activate cooldown to prevent spam clicks
             p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(300).ToString();
@@ -1973,6 +1985,18 @@ namespace MCGalaxy
             }
         }
         #endregion
+    }
+
+    public delegate void OnPlayerKilledByPlayer(Player p, Player killer);
+
+    /// <summary> Called whenever a player is killed by another player. </summary>
+    public sealed class OnPlayerKilledByPlayerEvent : IEvent<OnPlayerKilledByPlayer>
+    {
+        public static void Call(Player p, Player killer)
+        {
+            if (handlers.Count == 0) return;
+            CallCommon(pl => pl(p, killer));
+        }
     }
 
     #region Physics
