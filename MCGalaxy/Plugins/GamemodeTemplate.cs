@@ -7,6 +7,7 @@
 	^ Easiest way is CTRL + H in most text/code editors.
  	
  	- To add maps, you will need to type /sw add.
+    - This is just a template, feel free to modify the config section or add your own behaviour.
 */
 
 using System;
@@ -23,6 +24,8 @@ using MCGalaxy.Events.PlayerEvents;
 using MCGalaxy.Events.ServerEvents;
 using MCGalaxy.Maths;
 using MCGalaxy.Network;
+using MCGalaxy.SQL;
+
 using BlockID = System.UInt16;
 
 namespace MCGalaxy.Games
@@ -84,6 +87,16 @@ namespace MCGalaxy.Games
             return count.ToString();
         }
 
+        // Table structure for custom statistics
+        ColumnDesc[] createDatabase = new ColumnDesc[] {
+            new ColumnDesc("Name", ColumnType.VarChar, 16),
+            new ColumnDesc("RoundsPlayed", ColumnType.Int32),
+            new ColumnDesc("RoundsWon", ColumnType.Int32),
+            new ColumnDesc("MoneyEarned", ColumnType.Int32),
+            new ColumnDesc("Kills", ColumnType.Int32), // You need to add support for this yourself
+            // Add any other columns here
+        };
+
         public override void Load(bool startup)
         {
             // Add token into the server
@@ -94,6 +107,8 @@ namespace MCGalaxy.Games
 
             NOGGame.Instance.Config.Path = "plugins/NameOfGamemode/game.properties";
             OnConfigUpdated();
+
+            if (NOGGame.customStats) Database.CreateTable("Stats_NameOfGamemode", createDatabase);
 
             Command.Register(new CmdNameOfGamemode());
 
@@ -151,6 +166,7 @@ namespace MCGalaxy.Games
         public static bool buildable = false; // Whether or not to make the map buildable on round start
         public static bool deletable = false; // Whether or not to make the map deletable on round start
         public static bool altDetection = false; // Whether or not to give rewards to players if they share an IP with any players online
+        public static bool customStats = true; // Whether or not the plugin should implement custom statistics for rounds played, wins and money earned
 
         public static int winReward = 10; // Amount given to the player who wins
         public static int killReward = 1; // Amount given to players for every kill (incremental)
@@ -353,6 +369,23 @@ namespace MCGalaxy.Games
 
                     pl.Send(Packet.Motd(pl, "-hax -push"));
                     pl.Extras["MOTD"] = "-hax -push";
+
+                    if (NOGGame.customStats)
+                    {
+                        // Custom statistics
+                        List<string[]> rows = Database.GetRows("Stats_NameOfGamemode", "*", "WHERE Name=@0", pl.truename);
+
+                        if (rows.Count == 0)
+                        {
+                            Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned", pl.truename, 1, 0, 0, 0);
+                        }
+
+                        else
+                        {
+                            int played = int.Parse(rows[0][1]);
+                            Database.UpdateRows("Stats_NameOfGamemode", "RoundsPlayed=@1", "WHERE NAME=@0", pl.truename, played + 1);
+                        }
+                    }
                 }
             }
 
@@ -416,6 +449,23 @@ namespace MCGalaxy.Games
                 if (pl.level != Instance.Map) continue;
                 pl.Extras["SURVIVAL_HIDE_HUD"] = true;
 
+                if (customStats && pl == winner)
+                {
+                    // Custom statistics
+                    List<string[]> rows = Database.GetRows("Stats_NameOfGamemode", "*", "WHERE Name=@0", winner.truename);
+
+                    if (rows.Count == 0)
+                    {
+                        Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned", winner.truename, 1, 1, 0, 0);
+                    }
+
+                    else
+                    {
+                        int wins = int.Parse(rows[0][2]);
+                        Database.UpdateRows("Stats_NameOfGamemode", "RoundsWon=@1", "WHERE NAME=@0", winner.truename, wins + 1);
+                    }
+                }
+
                 NOGData data = Get(pl);
 
                 if (altDetection)
@@ -444,6 +494,23 @@ namespace MCGalaxy.Games
                 {
                     winner.Message("%dCongratulations, you won this round of NameOfGamemode!");
                     data.Tokens += winReward;
+                }
+
+                if (customStats)
+                {
+                    // Custom statistics
+                    List<string[]> rows = Database.GetRows("Stats_NameOfGamemode", "*", "WHERE Name=@0", pl.truename);
+
+                    if (rows.Count == 0)
+                    {
+                        Database.AddRow("Stats_NameOfGamemode", "Name, RoundsPlayed, RoundsWon, MoneyEarned, Kills", pl.truename, 0, 0, data.Tokens, 0);
+                    }
+
+                    else
+                    {
+                        int winnings = int.Parse(rows[0][3]);
+                        Database.UpdateRows("Stats_NameOfGamemode", "MoneyEarned=@1", "WHERE NAME=@0", pl.truename, winnings + data.Tokens);
+                    }
                 }
 
                 pl.SetMoney(pl.money + data.Tokens);
