@@ -217,6 +217,9 @@ namespace MCGalaxy
 
         public override void Load(bool startup)
         {
+            // Ensure directories exist before trying to read from them
+            createDirectories();
+
             if (!File.Exists("./plugins/VenksSurvival/config.properties")) MakeConfig();
 
             // Initialize config
@@ -318,6 +321,13 @@ namespace MCGalaxy
             Server.MainScheduler.Cancel(drownTask);
             Server.MainScheduler.Cancel(hungerTask);
             Server.MainScheduler.Cancel(regenTask);
+        }
+
+        void createDirectories()
+        {
+            Directory.CreateDirectory("./plugins/VenksSurvival");
+            Directory.CreateDirectory("./plugins/VenksSurvival/tools/");
+            Directory.CreateDirectory("./plugins/VenksSurvival/weapons/");
         }
 
         static void AddCustomPhysics(Level lvl)
