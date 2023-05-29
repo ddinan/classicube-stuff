@@ -679,9 +679,27 @@ namespace MCGalaxy
             int waitTime = RandomNumber(2, 4) * 5; // Time in milliseconds to wait before executing the next task
             int lookChance = RandomNumber(0, 2); // Chance for the NPC to look at the player
             int lookTime = RandomNumber(2, 5) * 5; // Time in milliseconds to look at the player for
+            int eatGrassChance = RandomNumber(0, 100); // Chance for the NPC to eat grass
 
             int dx = RandomNumber(bot.Pos.X - (8 * 32), bot.Pos.X + (8 * 32)); // Random X location on the map within a 8x8 radius of the bot for the it to walk towards.
             int dz = RandomNumber(bot.Pos.Z - (8 * 32), bot.Pos.Z + (8 * 32)); // Random Z location on the map within a 8x8 radius of the bot for the it to walk towards.
+
+            if (eatGrassChance <= 3)
+            {
+                // Only eat grass if the block underneath the NPC is grass
+                BlockID floor = bot.level.GetBlock((ushort)(bot.Pos.X / 32), (ushort)((bot.Pos.Y / 32) - 2), (ushort)(bot.Pos.Z / 32));
+
+                if (floor == Block.Grass)
+                {
+                    bot.level.UpdateBlock(Player.Console, (ushort)(bot.Pos.X / 32), (ushort)((bot.Pos.Y / 32) - 2), (ushort)(bot.Pos.Z / 32), Block.Dirt);
+
+                    if (bot.Model.CaselessEq("sheep_nofur"))
+                    {
+                        bot.UpdateModel("sheep");
+                        BotsFile.Save(bot.level);
+                    }
+                }
+            }
 
             if (stillChance > 2)
             {
