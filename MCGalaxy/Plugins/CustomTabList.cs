@@ -13,7 +13,7 @@ namespace MCGalaxy
         public override string MCGalaxy_Version { get { return "1.9.3.4"; } }
         public override string name { get { return "CustomTabList"; } }
 
-        public static string path = "./Plugins/CustomTabList";
+        public static string path = "./plugins/CustomTabList";
 
         public class Config
         {
@@ -62,15 +62,18 @@ namespace MCGalaxy
 
         void HandleTabListEntryAdded(Entity entity, ref string name, ref string group, Player p)
         {
+            Player pl = entity as Player;
+            if (pl == null) return;
+
             name = Config.Syntax
-                .Replace("[nick]", p.ColoredName)
-                .Replace("[username]", p.truename)
-                .Replace("[color]", p.color)
-                .Replace("[title]", p.title)
-                .Replace("[money]", p.money.ToString())
-                .Replace("[team]", p.Game.Team != null ? p.Game.Team.Name : "")
-                .Replace("[muted]", p.muted ? "(muted)" : "")
-                .Replace("[afk]", p.IsAfk ? "(afk)" : "");
+                .Replace("[nick]", pl.ColoredName)
+                .Replace("[username]", pl.truename)
+                .Replace("[color]", pl.color)
+                .Replace("[title]", pl.title)
+                .Replace("[money]", pl.money.ToString())
+                .Replace("[team]", pl.Game.Team != null ? pl.Game.Team.Name : "")
+                .Replace("[muted]", pl.muted ? "(muted)" : "")
+                .Replace("[afk]", pl.IsAfk ? "(afk)" : "");
         }
 
         public override void Unload(bool shutdown)
