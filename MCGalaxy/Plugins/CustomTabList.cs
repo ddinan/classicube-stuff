@@ -41,7 +41,7 @@ namespace MCGalaxy
                 w.WriteLine("# Edit the settings below to modify how the plugin operates.");
                 w.WriteLine("# The syntex you wish to use for the tab list.");
                 w.WriteLine("# Use &[colour code] to use colour codes.");
-                w.WriteLine("# Valid variables are: [nick], [username], [color], [title], [money], [team], [muted], [afk]");
+                w.WriteLine("# Valid variables are: [nick], [username], [color], [title], [titlecolor] [money], [team], [teamcolor], [muted], [afk]");
                 w.WriteLine("syntax = [username]");
                 w.WriteLine();
             }
@@ -70,8 +70,10 @@ namespace MCGalaxy
                 .Replace("[username]", pl.truename)
                 .Replace("[color]", pl.color)
                 .Replace("[title]", pl.title)
+                .Replace("[titlecolor]", pl.titlecolor)
                 .Replace("[money]", pl.money.ToString())
                 .Replace("[team]", pl.Game.Team != null ? pl.Game.Team.Name : "")
+                .Replace("[teamcolor]", pl.Game.Team != null ? pl.Game.Team.Color : "")
                 .Replace("[muted]", pl.muted ? "(muted)" : "")
                 .Replace("[afk]", pl.IsAfk ? "(afk)" : "");
         }
