@@ -68,7 +68,7 @@ namespace MCGalaxy
                 .Replace("[color]", p.color)
                 .Replace("[title]", p.title)
                 .Replace("[money]", p.money.ToString())
-                .Replace("[team]", p.GroupPrefix)
+                .Replace("[team]", p.Game.Team != null ? p.Game.Team.Name : "")
                 .Replace("[muted]", p.muted ? "(muted)" : "")
                 .Replace("[afk]", p.IsAfk ? "(afk)" : "");
         }
