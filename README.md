@@ -57,6 +57,7 @@ All compiled plugins and commands are now loaded on startup in latest MCGalaxy v
 |  **PreventOPBlocks** | Prevents being able to delete OP blocks.
 |  **SessionPunishments** | Forces players to be online for the entire duration of their mute/freeze.
 |  **SneakAI** | Instantly kills players who get too close to the bot.
+|  **StaffEligibility** | Provides $ tokens for requirements needing to be met before applying for staff.
 |  **Stopwatch** | Adds a stopwatch into the game.
 |  **TempFlood*** | Allows client-side water flooding.
 |  **TimeAFK** | Shows the amount of time players have been AFK for.
