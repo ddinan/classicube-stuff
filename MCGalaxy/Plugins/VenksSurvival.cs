@@ -1233,6 +1233,7 @@ namespace MCGalaxy
 
                         if (toolstats[2] == "0")
                         {
+                            p.Message("no tool");
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 140) / toolSpeed;
