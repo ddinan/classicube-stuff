@@ -22,6 +22,7 @@ All compiled plugins and commands are now loaded on startup in latest MCGalaxy v
 ### Plugins
 | Name | Description |
 | ------------- | -----|
+|  **_PasswordManager** | A more secure way to handle password interaction across plugins.
 |  **AntiVPN** | Prevents people from joining your server with a VPN.
 |  **BetterPing** | Makes your ping significantly lower.
 |  **BugWebhook** | Send a message on Discord whenever there's an error on your server.
@@ -32,12 +33,12 @@ All compiled plugins and commands are now loaded on startup in latest MCGalaxy v
 |  **CustomEventExample** | Example source code for adding custom events for cross-plugin communication.
 |  **CustomSoftware** | Allows changing the software name both in-game and in the launcher.
 |  **CustomStats** | Adds custom /top stats.
-|  **CustomTab*** | Allows changing the format of your tab list.
+|  **CustomTabList** | Allows changing the format of your tab list.
 |  **CustomWorldGen** | Example source code for adding custom newlvl themes.
 |  **DailyBonus** | Gives people money once per day when they login OR type /daily OR have been on the server for 30+ minutes.
 |  **DayNightCycle** | Adds a day-night cycle into the game. Does NOT modify sun or shadow values due to chunk reloading.
 |  **DiscordActionLog** | Relays a message to a Discord channel whenever an action has been performed (kick, ban, warn etc).
-|  **DiscordChannelName** | Renames a Discord channel name to match server player count.
+|  **DiscordChannelName** | Renames a Discord channel to match server player count.
 |  **DiscordVerify** | Bridge between Discord <-> server for linking Discord accounts.
 |  **Example** | Example source code in case you want to make your own plugins.
 |  **ExampleStoreItem** | Example source code for adding a custom item into /store.
@@ -48,7 +49,7 @@ All compiled plugins and commands are now loaded on startup in latest MCGalaxy v
 |  **LastLocation*** | Return to your last known location.
 |  **LocationJoin** | Announces the country players connect to the server from in chat.
 |  **Lottery** | Enter and win money.
-|  **MobAI*** | Adds custom bot AI instructions. Warning: Experimental.
+|  **MobAI** | Adds custom bot AI instructions. Warning: Experimental.
 |  **Nametags*** | Changes your nametag.
 |  **NickBlocker** | Prevents using /whonick in a level which has -nicks in its MOTD.
 |  **Parties** | Create/join parties and talk privately with specific people (temporary /team).
