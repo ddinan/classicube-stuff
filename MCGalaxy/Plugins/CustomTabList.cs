@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 
 using MCGalaxy;
@@ -65,6 +65,13 @@ namespace MCGalaxy
             Player pl = entity as Player;
             if (pl == null) return;
 
+            string pingColor = "&7";
+
+            if (pl.Session.Ping.AveragePing() > 0 && pl.Session.Ping.AveragePing() < 50) pingColor = "&a";
+            if (pl.Session.Ping.AveragePing() >= 50 && pl.Session.Ping.AveragePing() < 100) pingColor = "&e";
+            if (pl.Session.Ping.AveragePing() > 100 && pl.Session.Ping.AveragePing() < 200) pingColor = "&6";
+            if (pl.Session.Ping.AveragePing() >= 200) pingColor = "&c"
+
             name = Config.Syntax
                 .Replace("[nick]", pl.ColoredName)
                 .Replace("[username]", pl.truename)
@@ -75,7 +82,9 @@ namespace MCGalaxy
                 .Replace("[team]", pl.Game.Team != null ? pl.Game.Team.Name : "")
                 .Replace("[teamcolor]", pl.Game.Team != null ? pl.Game.Team.Color : "")
                 .Replace("[muted]", pl.muted ? "(muted)" : "")
-                .Replace("[afk]", pl.IsAfk ? "(afk)" : "");
+                .Replace("[afk]", pl.IsAfk ? "(afk)" : "")
+                .Replace("[ping]", pl.Session.Ping.AveragePing())
+                .Replace("[pingcolor]", pingColor);
         }
 
         public override void Unload(bool shutdown)
