@@ -1,4 +1,4 @@
-/* 
+﻿/* 
   PvP Plugin created by Venk and Sirvoid.
   
   PLEASE NOTE:
@@ -569,7 +569,7 @@ namespace MCGalaxy
             return "";
         }
 
-        void DoDamage(Player p, int damage, string type, Player killer)
+        public static void DoDamage(Player p, int damage, string type, Player killer)
         {
             int health = p.Extras.GetInt("SURVIVAL_HEALTH");
             p.Extras["SURVIVAL_HEALTH"] = health - damage;
@@ -586,7 +586,7 @@ namespace MCGalaxy
             }
         }
 
-        void KillPlayer(Player p, string type, Player killer)
+        public static void KillPlayer(Player p, string type, Player killer)
         {
             if (type == "drown") p.HandleDeath(Block.Water);
             if (type == "fall") p.HandleDeath(Block.Red); // Horrible hack to display custom fall death message
@@ -1233,7 +1233,6 @@ namespace MCGalaxy
 
                         if (toolstats[2] == "0")
                         {
-                            p.Message("no tool");
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 140) / toolSpeed;
@@ -1479,27 +1478,33 @@ namespace MCGalaxy
 
                 if (victim == null)
                 {
-                    p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450).ToString();
+                    p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(600);
+                    return;
                 }
 
                 else
                 {
-                    // If the player doesn't have an active cooldown, hit the victim
+                    // If the player doesn't have an active cooldown, hit the victim and set cooldown
 
                     if (!p.Extras.Contains("PVP_HIT_COOLDOWN"))
                     {
-                        if (CanHitPlayer(p, victim)) DoHit(p, victim);
+                        if (CanHitPlayer(p, victim))
+                        {
+                            DoHit(p, victim);
+                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450);
+                        }
                     }
 
                     else
                     {
-                        DateTime cooldown = DateTime.Parse(p.Extras.GetString("PVP_HIT_COOLDOWN"));
+                        DateTime lastClickTime = (DateTime)p.Extras.Get("PVP_HIT_COOLDOWN");
 
-                        // Only hit if player doesn't have an active cooldown
+                        if (lastClickTime > DateTime.UtcNow) return;
 
-                        if (cooldown <= DateTime.UtcNow)
+                        if (CanHitPlayer(p, victim))
                         {
-                            if (CanHitPlayer(p, victim)) DoHit(p, victim);
+                            DoHit(p, victim);
+                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450);
                         }
                     }
                 }
@@ -1520,11 +1525,17 @@ namespace MCGalaxy
 
             if (p.Game.Referee || victim.Game.Referee || p.invincible || victim.invincible) return false; // Ref or invincible
             if (inSafeZone(p, p.level.name) || inSafeZone(victim, victim.level.name)) return false; // Either player is in a safezone
-            if (p.Extras.GetString("TEAM") != null && (p.Extras.GetString("TEAM") == victim.Extras.GetString("TEAM"))) return false; // Players are on the same team
+
+            if (!string.IsNullOrWhiteSpace(p.Extras.GetString("TEAM")) && (p.Extras.GetString("TEAM") == victim.Extras.GetString("TEAM")))
+            {
+                return false; // Players are on the same team
+            }
 
             BlockID b = p.GetHeldBlock();
             string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
             if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
+
+            if (Block.GetName(p, b).ToLower() == "bow") return false; // Bow damage comes from arrows, not player click
 
             // If all checks are complete, return true to allow knockback and damage
             return true;
@@ -1547,7 +1558,7 @@ namespace MCGalaxy
             if (victim.Supports(CpeExt.VelocityControl) && p.Supports(CpeExt.VelocityControl))
             {
                 // Intensity of force is in part determined by model scale
-                victim.Send(Packet.VelocityControl((-dir.X * mult) * 0.33f, 0.5f * mult, (-dir.Z * mult) * 0.33f, 0, 1, 0));
+                victim.Send(Packet.VelocityControl((-dir.X * mult) * 0.5f, 0.87f * mult, (-dir.Z * mult) * 0.5f, 0, 1, 0));
 
                 // If GoodlyEffects is enabled, show particles whenever a player is hit
                 if (Config.UseGoodlyEffects)
@@ -1569,9 +1580,6 @@ namespace MCGalaxy
             // TODO: Weapons
             int damage = 1;
             if (!p.level.Config.MOTD.CaselessContains("-damage")) DoDamage(victim, damage, "pvp", p);
-
-            // Activate cooldown to prevent spam clicks
-            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(300).ToString();
         }
 
         void HandleOnJoinedLevel(Player p, Level prevLevel, Level level, ref bool announce)
@@ -1954,13 +1962,13 @@ namespace MCGalaxy
             foreach (Player pl in players)
             {
                 if (!pl.Extras.GetBoolean("POTION_IS_FAST")) continue;
-                if (pl.Extras.GetBoolean("POTION_IS_JUMP")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
-                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " horspeed=3.75"));
+                if (pl.Extras.GetBoolean("POTION_IS_JUMP")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD.Replace("jumpheight=", "").Replace("horspeed=", "") + " jumpheight=2 horspeed=3"));
+                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD.Replace("horspeed=", "") + " horspeed=3"));
 
                 string time = pl.Extras.GetString("POTION_SPEED_TIMER");
 
                 DateTime date1 = DateTime.Parse(time);
-                DateTime date2 = date1.AddSeconds(7);
+                DateTime date2 = date1.AddSeconds(30);
 
                 if (DateTime.UtcNow > date2)
                 {
@@ -1978,14 +1986,13 @@ namespace MCGalaxy
             foreach (Player pl in players)
             {
                 if (!pl.Extras.GetBoolean("POTION_IS_JUMP")) continue;
-                if (pl.Extras.GetBoolean("POTION_IS_FAST")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4 horspeed=3.75"));
-                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD + " jumpheight=4"));
-                if (pl.Supports(CpeExt.HackControl)) pl.Send(Packet.HackControl(true, true, true, true, true, 128)); // Fly, noclip, speed, respawn, 3rd, jumpheight
+                if (pl.Extras.GetBoolean("POTION_IS_FAST")) pl.Send(Packet.Motd(pl, pl.level.Config.MOTD.Replace("jumpheight=", "").Replace("horspeed=", "") + " jumpheight=2 horspeed=3"));
+                else pl.Send(Packet.Motd(pl, pl.level.Config.MOTD.Replace("jumpheight=", "") + " jumpheight=2"));
 
                 string time = pl.Extras.GetString("POTION_JUMP_TIMER");
 
                 DateTime date1 = DateTime.Parse(time);
-                DateTime date2 = date1.AddSeconds(7);
+                DateTime date2 = date1.AddSeconds(30);
 
                 if (DateTime.UtcNow > date2)
                 {
@@ -3253,8 +3260,8 @@ namespace MCGalaxy
             {
                 p.Message("You need to specify a potion to use.");
                 p.Message("%T/Potion health %b- Sets your health to full.");
-                p.Message("%T/Potion speed %b- Gives you a 3.75x speed boost for 3 minutes.");
-                p.Message("%T/Potion jump %b- Gives you a 4x jump boost for 3 minutes.");
+                p.Message("%T/Potion speed %b- Gives you a 3x speed boost for 30 seconds.");
+                p.Message("%T/Potion jump %b- Gives you a 3x jump boost for 30 seconds.");
                 p.Message("%T/Potion invisible %b- Makes you invisible for 10 seconds.");
             }
             else
