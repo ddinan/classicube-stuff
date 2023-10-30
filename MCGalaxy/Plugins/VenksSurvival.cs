@@ -1457,7 +1457,7 @@ namespace MCGalaxy
 
             if (button == MouseButton.Left)
             {
-                if (action != MouseAction.Pressed) return;
+                if (action != MouseAction.Released) return;
 
                 Player victim = null; // If not null, the player that is being hit
 
@@ -1478,7 +1478,17 @@ namespace MCGalaxy
 
                 if (victim == null)
                 {
-                    p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(600);
+                    int ping = p.Session.Ping.AveragePing();
+                    int penalty = 0;
+
+                    if (ping == 0) penalty = 0; // "lagged-out"
+                    if (ping > 0 && ping <= 29) penalty = 50; // "great"
+                    if (ping > 29 && ping <= 59) penalty = 100; // "good"
+                    if (ping > 59 && ping <= 119) penalty = 150; // "okay"
+                    if (ping > 119 && ping <= 180) penalty = 200; // "bad"
+                    if (ping > 180) penalty = 250; // "horrible"
+
+                    p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(550 - penalty);
                     return;
                 }
 
@@ -1491,7 +1501,18 @@ namespace MCGalaxy
                         if (CanHitPlayer(p, victim))
                         {
                             DoHit(p, victim);
-                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450);
+
+                            int ping = p.Session.Ping.AveragePing();
+                            int penalty = 0;
+
+                            if (ping == 0) penalty = 0; // "lagged-out"
+                            if (ping > 0 && ping <= 29) penalty = 50; // "great"
+                            if (ping > 29 && ping <= 59) penalty = 100; // "good"
+                            if (ping > 59 && ping <= 119) penalty = 150; // "okay"
+                            if (ping > 119 && ping <= 180) penalty = 200; // "bad"
+                            if (ping > 180) penalty = 250; // "horrible"
+
+                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(400 - penalty);
                         }
                     }
 
@@ -1504,7 +1525,18 @@ namespace MCGalaxy
                         if (CanHitPlayer(p, victim))
                         {
                             DoHit(p, victim);
-                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(450);
+
+                            int ping = p.Session.Ping.AveragePing();
+                            int penalty = 0;
+
+                            if (ping == 0) penalty = 0; // "lagged-out"
+                            if (ping > 0 && ping <= 29) penalty = 50; // "great"
+                            if (ping > 29 && ping <= 59) penalty = 100; // "good"
+                            if (ping > 59 && ping <= 119) penalty = 150; // "okay"
+                            if (ping > 119 && ping <= 180) penalty = 200; // "bad"
+                            if (ping > 180) penalty = 250; // "horrible"
+
+                            p.Extras["PVP_HIT_COOLDOWN"] = DateTime.UtcNow.AddMilliseconds(400 - penalty);
                         }
                     }
                 }
@@ -1514,7 +1546,13 @@ namespace MCGalaxy
         static bool CanHitPlayer(Player p, Player victim)
         {
             Vec3F32 delta = p.Pos.ToVec3F32() - victim.Pos.ToVec3F32();
-            float reachSq = 9f; // 3 block reach distance
+            float reachSq = 12f; // 3.46410161514 block reach distance
+
+            int ping = p.Session.Ping.AveragePing();
+
+            if (ping > 59 && ping <= 119) reachSq = 16f; // "okay"
+            if (ping > 119 && ping <= 180) reachSq = 16f; // "bad"
+            if (ping > 180) reachSq = 16f; // "horrible"
 
             // Don't allow clicking on players further away than their reach distance
             if (delta.LengthSquared > (reachSq + 1)) return false;
