@@ -523,7 +523,14 @@ namespace MCGalaxy
                         column = FindActiveSlot(pRows[0], GetID(block));
 
                         if (column == 0) amount = 0;
-                        else amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
+                        else
+                        {
+                            Console.WriteLine(column + " column");
+                            Console.WriteLine(pRows[0][column].ToString().StartsWith("0") + " col is empty = 0");
+                            Console.WriteLine(GetID(block).Replace("(", "").Replace(")", "") + " id/name of block");
+                            Console.WriteLine(Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + " = new amount if not empty");
+                            amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
+                        }
                     }
 
                     decimal hunger = Math.Floor((decimal)(pl.Extras.GetInt("HUNGER") / 50));
@@ -875,7 +882,7 @@ namespace MCGalaxy
             for (int col = 1; col <= 36; col++)
             {
                 string contents = row[col];
-                if (contents == "0" || contents.StartsWith(name)) return col;
+                if (contents == "0" || contents.StartsWith(name + "(")) return col;
             }
 
             return 0;
@@ -886,8 +893,9 @@ namespace MCGalaxy
             for (int col = 1; col <= 36; col++)
             {
                 string contents = row[col];
-                if (contents.StartsWith(name)) return col;
+                if (contents.StartsWith(name + "(")) return col;
             }
+
             return 0;
         }
 
@@ -895,6 +903,7 @@ namespace MCGalaxy
         {
             string id = block.ToString();
             if (Convert.ToInt32(block) >= 66) id = (block - 256).ToString(); // Need to convert block if ID is over 66
+
             return "b" + id;
         }
 
@@ -942,7 +951,7 @@ namespace MCGalaxy
             {
                 Database.AddRow("Inventories4", "Name, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
-                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36, Level", p.truename, GetID(block) + "(" + amount + ")", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", p.level.name);
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36, Level", p.truename, GetID(block) + "(" + amount + ")", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", p.level.name);
 
                 UpdateBlockList(p, 1);
                 return;
@@ -1068,6 +1077,7 @@ namespace MCGalaxy
                     if (newCount == 0)
                     {
                         Database.UpdateRows("Inventories4", "Slot" + column.ToString() + "=@1", "WHERE Name=@0 AND Level=@2", p.truename, "0", p.level.name);
+
                         p.Send(Packet.SetInventoryOrder(Block.Air, (BlockID)column, p.Session.hasExtBlocks));
                     }
                     else
@@ -1455,7 +1465,7 @@ namespace MCGalaxy
             string coords = x + ";" + y + ";" + z;
             Database.AddRow("Chests", "Level, Coords, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14," +
                 "Slot15, Slot16, Slot17, Slot18, Slot19, Slot20, Slot21, Slot22, Slot23, Slot24, Slot25, Slot26, Slot27, Slot28, Slot29," +
-                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.level.name, coords, "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "04", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
+                "Slot30, Slot31, Slot32, Slot33, Slot34, Slot35, Slot36", p.level.name, coords, "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0");
 
             p.Message("Created chest.");
         }
@@ -2716,7 +2726,6 @@ namespace MCGalaxy
 
             if (args.Length == 0)
             {
-
                 List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
                 if (pRows.Count == 0)
@@ -2724,6 +2733,7 @@ namespace MCGalaxy
                     p.Message("Your inventory is empty.");
                     return;
                 }
+
                 else
                 {
                     List<string> slots = new List<string>();
