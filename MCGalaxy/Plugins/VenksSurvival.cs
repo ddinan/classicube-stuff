@@ -63,6 +63,7 @@ using System.IO;
 
 using MCGalaxy;
 using MCGalaxy.Blocks;
+using MCGalaxy.Blocks.Extended;
 using MCGalaxy.Blocks.Physics;
 using MCGalaxy.Bots;
 using MCGalaxy.Commands;
@@ -141,6 +142,9 @@ namespace MCGalaxy
 
             [ConfigString("hit-particle", "Extra", "pvp")]
             public static string HitParticle = "pvp";
+
+            [ConfigString("break-particle", "Extra", "smokesmall")]
+            public static string BreakParticle = "smokesmall";
 
             [ConfigBool("custom-physics", "Extra", false)]
             public static bool CustomPhysics = false;
@@ -1079,6 +1083,9 @@ namespace MCGalaxy
         {
             if (maplist.Contains(p.level.name))
             {
+                string message = MessageBlock.Get(p.level.MapName, x, y, z);
+                if (message != null) return; // Don't try and mine message blocks
+
                 BlockID b = p.GetHeldBlock();
                 string held = Block.GetName(p, b);
 
@@ -1224,6 +1231,7 @@ namespace MCGalaxy
                                 decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
 
                                 bool dropping = false;
+
                                 if (saplingChance <= 5m)
                                 {
                                     // Begin sapling fall
@@ -1237,12 +1245,22 @@ namespace MCGalaxy
                                     // dropping = true;
                                 }
 
-                                if (!dropping) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                if (!dropping)
+                                {
+                                    p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                                    if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+                                }
                             }
 
                             else SaveBlock(p, clickedBlock, 1);
 
-                            if (clickedBlock != Block.Leaves) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                            if (clickedBlock != Block.Leaves)
+                            {
+                                p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                                if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+                            }
                             return;
                         }
 
@@ -1274,6 +1292,9 @@ namespace MCGalaxy
                                 else SaveBlock(p, clickedBlock, 1);
 
                                 p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                                if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING"] = false;
                                 p.Extras["MINING_COORDS"] = 0;
@@ -1332,12 +1353,22 @@ namespace MCGalaxy
                                         // dropping = true;
                                     }
 
-                                    if (!dropping) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                    if (!dropping)
+                                    {
+                                        p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                                        if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+                                    }
                                 }
 
                                 else SaveBlock(p, clickedBlock, 1);
 
-                                if (clickedBlock != Block.Leaves) p.level.UpdateBlock(p, x, y, z, Block.Air);
+                                if (clickedBlock != Block.Leaves)
+                                {
+                                    p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                                    if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+                                }
 
                                 p.Extras["HOLDING_TIME"] = 0;
                                 p.Extras["MINING_COORDS"] = 0;
