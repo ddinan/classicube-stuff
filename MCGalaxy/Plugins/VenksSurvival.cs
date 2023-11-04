@@ -2597,18 +2597,12 @@ namespace MCGalaxy
                 return;
             }
 
-            if (args.Length == 1)
-            {
-                p.Message("You need to specify the amount to craft.");
-                return;
-            }
-
             HandleMake(p, args);
         }
 
         void HandleMake(Player p, string[] args)
         {
-            int amount = int.Parse(args[1]);
+            int amount = args.Length > 1 ? int.Parse(args[1]) : 1; // Only craft 1 unless the player specified not to
 
             string[] recipe = PvP.getRecipe(args[0]).Split(' ');
 
@@ -2641,8 +2635,9 @@ namespace MCGalaxy
 
         public override void Help(Player p)
         {
-            p.Message("%T/Craft [item] [amount] %H- Crafts [amount] of [item].");
-            p.Message("%HFor information on recipes, type %b/Recipes%H.");
+            p.Message("%T/Craft [item] <amount> %H- Crafts [amount] of [item].");
+            p.Message("%T<amount> defaults to 1.");
+            p.Message("%HFor a list of recipes, type %b/Recipes%H.");
         }
     }
 
