@@ -996,6 +996,25 @@ namespace MCGalaxy
             return name;
         }
 
+        bool HasBlock(Player p, BlockID block)
+        {
+            List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
+
+            if (pRows.Count == 0) return false;
+
+            string name = Block.GetName(p, block);
+            name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+            if (!CommandParser.GetBlock(p, name, out block)) return false;
+
+            int column = 0;
+
+            if (name.ToLower() == "grass") column = FindActiveSlot(pRows[0], GetID(Block.Dirt));
+            else column = FindActiveSlot(pRows[0], GetID(block));
+
+            if (column == 0) return false;
+            return true;
+        }
+
         void HandleBlockChanged(Player p, ushort x, ushort y, ushort z, BlockID block, bool placing, ref bool cancel)
         {
             if (!maplist.Contains(p.level.name)) return;
@@ -1188,6 +1207,8 @@ namespace MCGalaxy
                         if (face == TargetBlockFace.TowardsY) py -= 0.5f;
                         if (face == TargetBlockFace.TowardsZ) pz -= 0.5625f;
 
+                        // Block hasn't been set up
+
                         if (blockstats[2] == "0")
                         {
                             name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
@@ -1231,11 +1252,14 @@ namespace MCGalaxy
                             baseLifetime = miningSpeed + 0.75f;
                         }
 
-                        if (toolstats[2] == "0")
+                        // Player doesn't have this block
+
+                        if (!HasBlock(p, b))
                         {
                             int toolSpeed = 1;
                             int blockSpeed = Int32.Parse(blockstats[2]);
                             int speed = (blockSpeed * 140) / toolSpeed;
+
                             //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             // 140ms per hit. E.g, leaves takes 2 hits so 280ms to break
@@ -1269,12 +1293,17 @@ namespace MCGalaxy
                                 }
                             }
                         }
+
                         else
                         {
-                            int toolSpeed = Int32.Parse(toolstats[2]);
+                            int toolSpeed = Int32.Parse(toolstats[1]);
                             int blockSpeed = Int32.Parse(blockstats[2]);
+
+                            //p.Message(toolstats[1] + " " + blockstats[1]);
+                            if (toolstats[1] != blockstats[1]) toolSpeed = 1; // Tool type doesn't match block type. E.g, sword for stone or shovel for wood
                             int speed = (blockSpeed * 140) / toolSpeed;
-                            p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
+
+                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
 
                             if (duration > TimeSpan.FromMilliseconds(speed))
                             {
@@ -1334,6 +1363,7 @@ namespace MCGalaxy
                             }
                         }
                     }
+
                     else if (action == MouseAction.Released)
                     {
                         p.Extras["HOLDING_TIME"] = 0;
@@ -1660,6 +1690,7 @@ namespace MCGalaxy
                     string[] prefixes = Config.AllowedMapPrefixes.Split(',');
 
                     bool match = false;
+
                     foreach (string prefix in prefixes)
                     {
                         if (p.level.name.StartsWith(prefix)) match = true;
@@ -3255,11 +3286,13 @@ namespace MCGalaxy
                 p.Message("You need to specify an ID for the block. E.g, '1' for stone.");
                 return;
             }
+
             if (args.Length == 2)
             {
                 p.Message("You need to specify the tool that makes mining faster. %T[tool] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
                 return;
             }
+
             if (args.Length == 3)
             {
                 p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
