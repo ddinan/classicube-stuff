@@ -2819,7 +2819,7 @@ namespace MCGalaxy
             p.Message("%7All items:");
             p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
 
-            for (int i = 0; i < PvP.recipes.Length; i++)
+            for (int i = 0; i < PvP.recipes.GetLength(0); i++)
             {
                 if (PvP.recipes[i, 0] == null) return;
 
@@ -2838,13 +2838,17 @@ namespace MCGalaxy
             // Check what materials the player has
             List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
+            p.Message("%7Craftable items:");
             p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
 
-            for (int i = 0; i < PvP.recipes.Length; i++)
+            for (int i = 0; i < PvP.recipes.GetLength(0); i++)
             {
-                if (PvP.recipes[i, 0] == null) return;
+                string recipe = PvP.recipes[i, 0];
+                if (recipe == null) continue;
 
                 string[] ingredientList = PvP.recipes[i, 1].Split(','); // ingredient1:amount,ingredient2:amount,ingredient3:amount
+
+                bool hasAllIngredients = true; // Assume player has all ingredients initially
 
                 foreach (string ingredient in ingredientList)
                 {
@@ -2855,18 +2859,36 @@ namespace MCGalaxy
                     {
                         ingredientName = PvP.ReplaceSuffixes(ingredientName); // Remove suffixes such as -N, -U etc
                         BlockID block;
-                        if (!GetBlock(p, ingredientName, out block)) return;
+
+                        if (!GetBlock(p, ingredientName, out block))
+                        {
+                            hasAllIngredients = false;
+                            break;
+                        }
 
                         int column = PvP.FindActiveSlot(pRows[0], PvP.GetID(block));
 
-                        if (column == 0) return;
+                        if (column == 0)
+                        {
+                            hasAllIngredients = false;
+                            break;
+                        }
 
                         // Check how many of this material the player has
                         int number = Int32.Parse(pRows[0][column].ToString().Replace(PvP.GetID(block), "").Replace("(", "").Replace(")", ""));
 
-                        // If player has sufficient materials, list
-                        if (number >= ingredientAmount) p.Message("%7- %b" + PvP.recipes[i, 0] + " %a" + PvP.recipes[i, 1]);
+                        // If player doesn't have sufficient materials, set the flag to false and break
+                        if (number < ingredientAmount)
+                        {
+                            hasAllIngredients = false;
+                            break;
+                        }
                     }
+                }
+
+                if (hasAllIngredients)
+                {
+                    p.Message("%7- %b" + recipe + " %a" + PvP.recipes[i, 1]);
                 }
             }
         }
