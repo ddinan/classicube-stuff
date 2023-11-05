@@ -57,9 +57,12 @@
 
  */
 
+//reference System.Core.dll
+
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 using MCGalaxy;
 using MCGalaxy.Blocks;
@@ -209,10 +212,13 @@ namespace MCGalaxy
         public static Config cfg = new Config();
 
         public static List<string> maplist = new List<string>();
-        public static string[,] blocks = new string[255, 3];
+        //public static string[,] blocks = new string[255, 3];
         public static string[,] recipes = new string[255, 2];
-        public static string[,] tools = new string[255, 4];
+        //public static string[,] tools = new string[255, 4];
         public static string[,] weapons = new string[255, 3];
+
+        public Dictionary<string, VenkBlock> blocks;
+        public Dictionary<string, Tool> tools;
 
         public static SchedulerTask drownTask;
         public static SchedulerTask guiTask;
@@ -222,7 +228,7 @@ namespace MCGalaxy
         public override void Load(bool startup)
         {
             // Ensure directories exist before trying to read from them
-            createDirectories();
+            CreateDirectories();
 
             if (!File.Exists("./plugins/VenksSurvival/config.properties")) MakeConfig();
 
@@ -231,10 +237,11 @@ namespace MCGalaxy
 
             // Load data files
 
-            loadBlocks();
+            blocks = LoadBlocks();
+            tools = LoadTools();
+
             loadMaps();
             loadRecipes();
-            loadTools();
             loadWeapons();
             initDB();
 
@@ -285,6 +292,7 @@ namespace MCGalaxy
             foreach (Player pl in players)
             {
                 if (!maplist.Contains(pl.level.name)) continue;
+
                 ResetPlayerState(pl);
             }
         }
@@ -327,11 +335,129 @@ namespace MCGalaxy
             Server.MainScheduler.Cancel(regenTask);
         }
 
-        void createDirectories()
+        void CreateDirectories()
         {
             Directory.CreateDirectory("./plugins/VenksSurvival");
             Directory.CreateDirectory("./plugins/VenksSurvival/tools/");
             Directory.CreateDirectory("./plugins/VenksSurvival/weapons/");
+        }
+
+        public class VenkBlock
+        {
+            // Properties
+            public string Name { get; set; }
+            public float Hardness { get; set; }
+            public int Tool { get; set; }
+            public float DefaultEfficiency { get; set; }
+            public float WoodEfficiency { get; set; }
+            public float StoneEfficiency { get; set; }
+            public float IronEfficiency { get; set; }
+
+            // Constructor
+            public VenkBlock(string name, float hardness, int tool, float defaultEfficiency, float woodEfficiency, float stoneEfficiency, float ironEfficiency)
+            {
+                Name = name;
+                Hardness = hardness;
+                Tool = tool;
+                DefaultEfficiency = defaultEfficiency;
+                WoodEfficiency = woodEfficiency;
+                StoneEfficiency = stoneEfficiency;
+                IronEfficiency = ironEfficiency;
+            }
+        }
+
+        private Dictionary<string, VenkBlock> LoadBlocks()
+        {
+            Dictionary<string, VenkBlock> blocks = new Dictionary<string, VenkBlock>();
+
+            try
+            {
+                if (!File.Exists(Config.Path + "blocks.txt")) File.Create(Config.Path + "blocks.txt").Dispose();
+
+                string[] lines = File.ReadAllLines(Config.Path + "blocks.txt");
+
+                foreach (string line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line) || line.Trim().StartsWith("//")) continue; // Ignore invalid lines
+
+                    string[] data = line.Split(';');
+
+                    if (data.Length == 7) // Assuming there are 7 properties in the file
+                    {
+                        VenkBlock block = new VenkBlock(
+                            data[0], // ID
+                            float.Parse(data[1]), // Hardness
+                            int.Parse(data[2]), // Optimal tool type
+                            float.Parse(data[3]), // Default efficiency
+                            float.Parse(data[4]), // Wood efficiency
+                            float.Parse(data[5]), // Stone efficiency
+                            float.Parse(data[6]) // Iron efficiency
+                        );
+
+                        blocks[block.Name] = block; // Add block to the dictionary using the name as the key
+                    }
+                }
+            }
+
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error reading file: " + ex.Message);
+            }
+
+            return blocks;
+        }
+
+        public class Tool
+        {
+            // Properties
+            public string Name { get; set; }
+            public float Durability { get; set; }
+            public int Type { get; set; }
+
+            // Constructor
+            public Tool(string name, float durability, int type)
+            {
+                Name = name;
+                Durability = durability;
+                Type = type;
+            }
+        }
+
+        private Dictionary<string, Tool> LoadTools()
+        {
+            Dictionary<string, Tool> tools = new Dictionary<string, Tool>();
+
+            try
+            {
+                if (!File.Exists(Config.Path + "tools.txt")) File.Create(Config.Path + "tools.txt").Dispose();
+
+                string[] lines = File.ReadAllLines(Config.Path + "tools.txt");
+
+                foreach (string line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line) || line.Trim().StartsWith("//")) continue; // Ignore invalid lines
+
+                    string[] data = line.Split(';');
+
+                    if (data.Length == 3) // Assuming there are 8 properties in the file
+                    {
+                        Tool tool = new Tool(
+                            data[0], // ID
+                            float.Parse(data[1]), // Durability
+                            int.Parse(data[2]) // Optimal block type
+                        );
+
+                        tools[tool.Name] = tool; // Add tool to the dictionary using the name as the key
+                    }
+                }
+            }
+
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error reading file: " + ex.Message);
+            }
+
+            return tools;
         }
 
         static void AddCustomPhysics(Level lvl)
@@ -525,10 +651,6 @@ namespace MCGalaxy
                         if (column == 0) amount = 0;
                         else
                         {
-                            Console.WriteLine(column + " column");
-                            Console.WriteLine(pRows[0][column].ToString().StartsWith("0") + " col is empty = 0");
-                            Console.WriteLine(GetID(block).Replace("(", "").Replace(")", "") + " id/name of block");
-                            Console.WriteLine(Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", "")) + " = new amount if not empty");
                             amount = pRows[0][column].ToString().StartsWith("0") ? 0 : Int32.Parse(pRows[0][column].ToString().Replace(GetID(block), "").Replace("(", "").Replace(")", ""));
                         }
                     }
@@ -1021,7 +1143,7 @@ namespace MCGalaxy
 
             int column = 0;
 
-            if (name.ToLower() == "grass") column = FindActiveSlot(pRows[0], GetID(Block.Dirt));
+            if (name.ToLower() == "grass") block = Block.Dirt;
             else column = FindActiveSlot(pRows[0], GetID(block));
 
             if (column == 0) return false;
@@ -1061,7 +1183,7 @@ namespace MCGalaxy
 
                     int column = 0;
 
-                    if (name.ToLower() == "grass") column = FindActiveSlot(pRows[0], GetID(Block.Dirt));
+                    if (name.ToLower() == "grass") block = Block.Dirt;
                     else column = FindActiveSlot(pRows[0], GetID(block));
 
                     if (column == 0)
@@ -1089,323 +1211,198 @@ namespace MCGalaxy
             }
         }
 
-        void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
+        float CalculateBreakingTime(bool isBestTool, float toolMultiplier, bool canHarvest, bool toolEfficiency, int efficiencyLevel, bool hasteEffect, int hasteLevel, bool miningFatigue, int miningFatigueLevel, bool inWater, bool hasAquaAffinity, bool onGround, float blockHardness)
         {
-            if (maplist.Contains(p.level.name))
+            float speedMultiplier = 1;
+
+            if (isBestTool)
             {
-                string message = MessageBlock.Get(p.level.MapName, x, y, z);
-                if (message != null) return; // Don't try and mine message blocks
+                speedMultiplier = toolMultiplier;
 
-                BlockID b = p.GetHeldBlock();
-                string held = Block.GetName(p, b);
+                if (!canHarvest) speedMultiplier = 1;
+                else if (toolEfficiency) speedMultiplier += (float)(Math.Pow(efficiencyLevel, 2) + 1);
+            }
 
-                if (action == MouseAction.Pressed)
+            if (hasteEffect) speedMultiplier *= 0.2f * hasteLevel + 1;
+
+            if (miningFatigue) speedMultiplier *= (float)Math.Pow(0.3f, Math.Min(miningFatigueLevel, 4));
+
+            if (inWater && !hasAquaAffinity) speedMultiplier /= 5;
+
+            if (!onGround) speedMultiplier /= 5;
+
+            float damage = speedMultiplier / blockHardness;
+
+            if (canHarvest) damage /= 30;
+            else damage /= 100;
+
+            if (damage > 1) return 0;
+
+            int ticks = (int)Math.Ceiling(1 / damage);
+            float seconds = ticks / 20f;
+
+            return seconds;
+        }
+
+        void MineBlock(Player p, ushort x, ushort y, ushort z, BlockID block, string name)
+        {
+            name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
+            if (!CommandParser.GetBlock(p, name, out block)) return;
+
+            if (block == Block.Grass) SaveBlock(p, Block.Dirt, 1);
+            else if (block == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
+            else if (block == Block.Leaves)
+            {
+                // Chance of dropping sapling and apples
+                decimal saplingChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+                decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
+
+                bool dropping = false;
+
+                if (saplingChance <= 5m)
                 {
-                    if (held.ToLower() == "goldenapple")
-                    {
-                        if (p.Extras.GetInt("GOLDEN_APPLES") == 0)
-                        {
-                            p.Message("%7You have no golden apples remaining.");
-                            return;
-                        }
-
-                        else
-                        {
-                            int health = p.Extras.GetInt("SURVIVAL_HEALTH");
-                            if (health <= Config.MaxHealth - 4) p.Extras["SURVIVAL_HEALTH"] = health + 4; // Give 4 health points
-                            else p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth; // Set to max health if over (max - 4)
-
-                            int hunger = p.Extras.GetInt("HUNGER");
-                            if (hunger < 800) p.Extras["HUNGER"] = hunger + 200; // Give back 4 food points
-                            else p.Extras["HUNGER"] = 1000; // Set to max if over 800
-
-                            p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
-                            return;
-                        }
-                    }
-
-                    if (held.ToLower() == "food")
-                    {
-                        if (p.Extras.GetInt("FOOD") == 0)
-                        {
-                            p.Message("%7You have no food remaining.");
-                            return;
-                        }
-
-                        else
-                        {
-                            int hunger = p.Extras.GetInt("HUNGER");
-                            if (hunger < 700) p.Extras["HUNGER"] = hunger + 300; // Give back 6 food points
-                            else p.Extras["HUNGER"] = 1000; // Set to max if over 700
-
-                            p.Extras["FOOD"] = p.Extras.GetInt("FOOD") - 1; // Subtract one food
-                            return;
-                        }
-                    }
+                    // Begin sapling fall
+                    p.level.UpdateBlock(p, x, y, z, Block.Sapling);
+                    dropping = true;
                 }
 
-                BlockID clickedBlock = p.level.GetBlock(x, y, z);
-                string name = Block.GetName(p, clickedBlock);
-
-                if (name.ToLower() == "unknown") return;
-
-                if (button == MouseButton.Left)
+                if (appleChance <= 0.5m)
                 {
-                    if (!Config.Mining) return;
+                    // TODO: Drop apples
+                    // dropping = true;
+                }
 
-                    if (!p.level.Config.MOTD.ToLower().Contains("mining=true")) return;
+                if (!dropping)
+                {
+                    p.level.UpdateBlock(p, x, y, z, Block.Air);
 
-                    if (p.invincible || p.Game.Referee)
+                    if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+                }
+            }
+
+            else SaveBlock(p, block, 1);
+
+            if (block != Block.Leaves)
+            {
+                p.level.UpdateBlock(p, x, y, z, Block.Air);
+
+                if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
+            }
+
+            p.Extras["HOLDING_TIME"] = 0;
+            p.Extras["MINING_COORDS"] = 0;
+
+            if (Config.UseGoodlyEffects)
+            {
+                // Despawn break particle
+                p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+            }
+        }
+
+        public VenkBlock GetBlockByName(string name)
+        {
+            // Case-insensitive search for the block name
+            KeyValuePair<string, VenkBlock> matchingBlock = blocks.FirstOrDefault(kv => kv.Key.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingBlock.Equals(default(KeyValuePair<string, VenkBlock>)))
+            {
+                return null;
+            }
+
+            return matchingBlock.Value;
+        }
+
+        void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
+        {
+            if (!maplist.Contains(p.level.name)) return;
+
+            string message = MessageBlock.Get(p.level.MapName, x, y, z);
+            if (message != null) return; // Don't try and mine message blocks
+
+            BlockID b = p.GetHeldBlock();
+            string held = Block.GetName(p, b);
+
+            if (action == MouseAction.Pressed)
+            {
+                if (held.ToLower() == "goldenapple")
+                {
+                    if (p.Extras.GetInt("GOLDEN_APPLES") == 0)
                     {
-                        p.Message("%f╒ &c∩αΓ: &7You cannot modify blocks as a spectator.");
+                        p.Message("%7You have no golden apples remaining.");
                         return;
                     }
 
-                    if (name.StartsWith("Chest-")) return;
-
-
-                    //if (p.invincible) return;
-
-                    if (p.Extras.GetInt("HOLDING_TIME") == 0)
+                    else
                     {
-                        p.Extras["MINING_COORDS"] = x + "_" + y + "_" + z;
+                        int health = p.Extras.GetInt("SURVIVAL_HEALTH");
+                        if (health <= Config.MaxHealth - 4) p.Extras["SURVIVAL_HEALTH"] = health + 4; // Give 4 health points
+                        else p.Extras["SURVIVAL_HEALTH"] = Config.MaxHealth; // Set to max health if over (max - 4)
+
+                        int hunger = p.Extras.GetInt("HUNGER");
+                        if (hunger < 800) p.Extras["HUNGER"] = hunger + 200; // Give back 4 food points
+                        else p.Extras["HUNGER"] = 1000; // Set to max if over 800
+
+                        p.Extras["GOLDEN_APPLES"] = p.Extras.GetInt("GOLDEN_APPLES") - 1; // Subtract one golden apple
+                        return;
+                    }
+                }
+
+                if (held.ToLower() == "food")
+                {
+                    if (p.Extras.GetInt("FOOD") == 0)
+                    {
+                        p.Message("%7You have no food remaining.");
+                        return;
                     }
 
-                    float px = Convert.ToSingle(x), py = Convert.ToSingle(y), pz = Convert.ToSingle(z);
-
-                    // Offset particle in the center of the block
-
-                    px += 0.5f;
-                    pz += 0.5f;
-
-                    if (action == MouseAction.Pressed)
+                    else
                     {
-                        string coords = p.Extras.GetString("MINING_COORDS");
-                        if (coords != (x + "_" + y + "_" + z))
-                        {
-                            p.Extras["HOLDING_TIME"] = 0;
-                            p.Extras["MINING"] = false;
-                            p.Extras["MINING_COORDS"] = 0;
+                        int hunger = p.Extras.GetInt("HUNGER");
+                        if (hunger < 700) p.Extras["HUNGER"] = hunger + 300; // Give back 6 food points
+                        else p.Extras["HUNGER"] = 1000; // Set to max if over 700
 
-                            if (Config.UseGoodlyEffects)
-                            {
-                                // Despawn break particle
-                                p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
-                            }
-
-                            return;
-                        }
-
-                        int heldFor = p.Extras.GetInt("HOLDING_TIME");
-
-                        // The client's click speed is ~4 times/second
-                        TimeSpan duration = TimeSpan.FromSeconds(heldFor / 4.0);
-
-                        string[] blockstats = getBlockStats((byte)clickedBlock + "").Split(' ');
-                        //p.Message(blockstats[2]);
-                        string[] toolstats = getToolStats(Block.GetName(p, b)).Split(' ');
-
-                        //p.Message("block type: " + blockstats[1] + ", hard: " + blockstats[2] + ", id: " +  clickedBlock);
-                        //p.Message("tool type: " + toolstats[3] + ", hard: " + toolstats[2] + ", speed %b" + toolstats[1] + "%S, id: " +  toolstats[0]);
-
-                        // Check if block type and tool type go together
-                        // Assign speed of tool based on tool type
-                        // Get block durability, times by 125 then divide by the speed of the tool
-
-                        float miningSpeed = 0f;
-                        float baseLifetime = 1f;
-
-                        // Position particle towards respective block face
-
-                        if (face == TargetBlockFace.AwayX) px += 0.5625f;
-                        if (face == TargetBlockFace.AwayY) py += 0.5f;
-                        if (face == TargetBlockFace.AwayZ) pz += 0.5625f;
-                        if (face == TargetBlockFace.TowardsX) px -= 0.5625f;
-                        if (face == TargetBlockFace.TowardsY) py -= 0.5f;
-                        if (face == TargetBlockFace.TowardsZ) pz -= 0.5625f;
-
-                        // Block hasn't been set up
-
-                        if (blockstats[2] == "0")
-                        {
-                            name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
-                            if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
-
-                            if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
-                            else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
-
-                            else if (clickedBlock == Block.Leaves)
-                            {
-                                // Chance of dropping sapling and apples
-                                decimal saplingChance = CustomLeafPhysics.GetPercentage(0m, 100m);
-                                decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
-
-                                bool dropping = false;
-
-                                if (saplingChance <= 5m)
-                                {
-                                    // Begin sapling fall
-                                    p.level.UpdateBlock(p, x, y, z, Block.Sapling);
-                                    dropping = true;
-                                }
-
-                                if (appleChance <= 0.5m)
-                                {
-                                    // TODO: Drop apples
-                                    // dropping = true;
-                                }
-
-                                if (!dropping)
-                                {
-                                    p.level.UpdateBlock(p, x, y, z, Block.Air);
-
-                                    if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
-                                }
-                            }
-
-                            else SaveBlock(p, clickedBlock, 1);
-
-                            if (clickedBlock != Block.Leaves)
-                            {
-                                p.level.UpdateBlock(p, x, y, z, Block.Air);
-
-                                if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
-                            }
-                            return;
-                        }
-
-                        else
-                        {
-                            miningSpeed = Convert.ToSingle((int.Parse(blockstats[2]) - 4) * 0.1);
-                            baseLifetime = miningSpeed + 0.75f;
-                        }
-
-                        // Player doesn't have this block
-
-                        if (!HasBlock(p, b))
-                        {
-                            int toolSpeed = 1;
-                            int blockSpeed = Int32.Parse(blockstats[2]);
-                            int speed = (blockSpeed * 140) / toolSpeed;
-
-                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
-
-                            // 140ms per hit. E.g, leaves takes 2 hits so 280ms to break
-
-                            if (duration > TimeSpan.FromMilliseconds(speed))
-                            {
-                                name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
-                                if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
-
-                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
-                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
-                                else SaveBlock(p, clickedBlock, 1);
-
-                                p.level.UpdateBlock(p, x, y, z, Block.Air);
-
-                                if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
-
-                                p.Extras["HOLDING_TIME"] = 0;
-                                p.Extras["MINING"] = false;
-                                p.Extras["MINING_COORDS"] = 0;
-                                return;
-                            }
-
-                            p.Extras["HOLDING_TIME"] = heldFor + 1;
-
-                            if (Config.UseGoodlyEffects)
-                            {
-                                if (!p.Extras.GetBoolean("MINING"))
-                                {
-                                    // Spawn break particle
-                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
-                                    p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
-                                    p.Extras["MINING"] = true;
-                                }
-                            }
-                        }
-
-                        else
-                        {
-                            int toolSpeed = Int32.Parse(toolstats[1]);
-                            int blockSpeed = Int32.Parse(blockstats[2]);
-
-                            //p.Message(toolstats[1] + " " + blockstats[1]);
-                            if (toolstats[1] != blockstats[1]) toolSpeed = 1; // Tool type doesn't match block type. E.g, sword for stone or shovel for wood
-                            int speed = (blockSpeed * 140) / toolSpeed;
-
-                            //p.Message("Speed: " + speed + " bs: " + blockstats[2] + /*" mult:" + multiplier +*/ " toolsp: " + toolSpeed + " blocksp:" + blockSpeed);
-
-                            if (duration > TimeSpan.FromMilliseconds(speed))
-                            {
-                                name = ReplaceSuffixes(name); // Remove suffixes such as -N, -U etc
-                                if (!CommandParser.GetBlock(p, name, out clickedBlock)) return;
-
-                                if (clickedBlock == Block.Grass) SaveBlock(p, Block.Dirt, 1);
-                                else if (clickedBlock == Block.Stone) SaveBlock(p, Block.Cobblestone, 1);
-                                else if (clickedBlock == Block.Leaves)
-                                {
-                                    // Chance of dropping sapling and apples
-                                    decimal saplingChance = CustomLeafPhysics.GetPercentage(0m, 100m);
-                                    decimal appleChance = CustomLeafPhysics.GetPercentage(0m, 100m);
-
-                                    bool dropping = false;
-                                    if (saplingChance <= 5m)
-                                    {
-                                        // Begin sapling fall
-                                        p.level.UpdateBlock(p, x, y, z, Block.Sapling);
-                                        dropping = true;
-                                    }
-
-                                    if (appleChance <= 0.5m)
-                                    {
-                                        // TODO: Drop apples
-                                        // dropping = true;
-                                    }
-
-                                    if (!dropping)
-                                    {
-                                        p.level.UpdateBlock(p, x, y, z, Block.Air);
-
-                                        if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
-                                    }
-                                }
-
-                                else SaveBlock(p, clickedBlock, 1);
-
-                                if (clickedBlock != Block.Leaves)
-                                {
-                                    p.level.UpdateBlock(p, x, y, z, Block.Air);
-
-                                    if (Config.UseGoodlyEffects) Command.Find("Effect").Use(p, Config.BreakParticle + " " + x + " " + y + " " + z + " 0 0 0 false"); // If GoodlyEffects is enabled, show a break particle
-                                }
-
-                                p.Extras["HOLDING_TIME"] = 0;
-                                p.Extras["MINING_COORDS"] = 0;
-
-                                if (Config.UseGoodlyEffects)
-                                {
-                                    // Despawn break particle
-                                    p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
-                                }
-                                return;
-                            }
-                            p.Extras["HOLDING_TIME"] = heldFor + 1;
-
-                            if (Config.UseGoodlyEffects)
-                            {
-                                if (!p.Extras.GetBoolean("MINING"))
-                                {
-                                    // Spawn break particle
-                                    p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, baseLifetime, 0, true, true, true, true, true));
-                                    p.Send(Packet.SpawnEffect(200, px, py, pz, 0, 0, 0));
-                                    p.Extras["MINING"] = true;
-                                }
-                            }
-                        }
+                        p.Extras["FOOD"] = p.Extras.GetInt("FOOD") - 1; // Subtract one food
+                        return;
                     }
+                }
+            }
 
-                    else if (action == MouseAction.Released)
+            BlockID clickedBlock = p.level.GetBlock(x, y, z);
+            string name = Block.GetName(p, clickedBlock);
+
+            if (name.ToLower() == "unknown") return;
+
+            if (button == MouseButton.Left)
+            {
+                if (!Config.Mining) return;
+                if (!p.level.Config.MOTD.ToLower().Contains("mining=true")) return;
+
+                if (p.invincible || p.Game.Referee)
+                {
+                    p.Message("%f╒ &c∩αΓ: &7You cannot modify blocks as a spectator.");
+                    return;
+                }
+
+                if (name.StartsWith("Chest-")) return;
+
+                if (p.Extras.GetInt("HOLDING_TIME") == 0)
+                {
+                    p.Extras["MINING_COORDS"] = x + "_" + y + "_" + z;
+                }
+
+                float px = Convert.ToSingle(x), py = Convert.ToSingle(y), pz = Convert.ToSingle(z);
+
+                // Offset particle in the center of the block
+
+                px += 0.5f;
+                pz += 0.5f;
+
+                if (action == MouseAction.Pressed)
+                {
+                    string coords = p.Extras.GetString("MINING_COORDS");
+
+                    // If the player starts mining a new block before the other one has finished, restart the mining process
+                    if (coords != (x + "_" + y + "_" + z))
                     {
                         p.Extras["HOLDING_TIME"] = 0;
                         p.Extras["MINING"] = false;
@@ -1414,36 +1411,146 @@ namespace MCGalaxy
                         if (Config.UseGoodlyEffects)
                         {
                             // Despawn break particle
-                            p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                            p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                        }
+
+                        return;
+                    }
+
+                    int heldFor = p.Extras.GetInt("HOLDING_TIME");
+
+                    // The client's click speed is ~4 times/second
+                    TimeSpan duration = TimeSpan.FromSeconds(heldFor / 4.0);
+
+                    float baseLifetime = 1f;
+
+                    // Position particle towards respective block face
+
+                    if (face == TargetBlockFace.AwayX) px += 0.5625f;
+                    if (face == TargetBlockFace.AwayY) py += 0.5f;
+                    if (face == TargetBlockFace.AwayZ) pz += 0.5625f;
+                    if (face == TargetBlockFace.TowardsX) px -= 0.5625f;
+                    if (face == TargetBlockFace.TowardsY) py -= 0.5f;
+                    if (face == TargetBlockFace.TowardsZ) pz -= 0.5625f;
+
+                    // If block isn't set up, just delete the block like normal and return
+
+                    bool contains = blocks.Keys.Any(key => key.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+                    if (!contains)
+                    {
+                        MineBlock(p, x, y, z, clickedBlock, name);
+                        return;
+                    }
+
+                    // Placeholder properties used to calculate the breaking speed of the block
+
+                    bool isBestTool = false;
+                    float toolMultiplier = 1.0f;
+                    bool canHarvest = true;
+                    float blockHardness = 10.0f;
+
+                    bool toolEfficiency = false; // TODO
+                    int efficiencyLevel = 0; // TODO
+                    bool hasteEffect = false; // TODO
+                    int hasteLevel = 2; // TODO
+                    bool miningFatigue = false; // TODO
+                    int miningFatigueLevel = 0; // TODO
+                    bool inWater = false; // TODO
+                    bool hasAquaAffinity = false; // TODO
+                    bool onGround = true; // TODO
+
+                    VenkBlock blockInfo = GetBlockByName(name);
+
+                    if (blockInfo == null)
+                    {
+                        MineBlock(p, x, y, z, clickedBlock, name);
+                        return;
+                    }
+
+                    blockHardness = blockInfo.Hardness;
+
+                    if (name.ToLower().StartsWith("wood")) toolMultiplier = 2f;
+                    else if (name.ToLower().StartsWith("stone")) toolMultiplier = 4f;
+                    else if (name.ToLower().StartsWith("iron")) toolMultiplier = 6f;
+
+                    // Check if player is holding a tool and if so, check if it is in their inventory
+
+                    if (tools.ContainsKey(held) && HasBlock(p, b))
+                    {
+
+                    }
+
+                    // Check if the player has got the tool in their inventory
+
+                    // Check if the tool is the correct type
+
+                    // Check if the player is in the air
+
+                    // Check if they are in water
+
+                    float breakingTime = CalculateBreakingTime(isBestTool, toolMultiplier, canHarvest, toolEfficiency, efficiencyLevel, hasteEffect, hasteLevel, miningFatigue, miningFatigueLevel, inWater, hasAquaAffinity, onGround, blockHardness);
+
+                    breakingTime *= 1000; // s > ms
+
+                    if (duration > TimeSpan.FromMilliseconds(breakingTime))
+                    {
+                        MineBlock(p, x, y, z, b, name);
+                        return;
+                    }
+
+                    p.Extras["HOLDING_TIME"] = heldFor + 1;
+
+                    if (Config.UseGoodlyEffects)
+                    {
+                        if (!p.Extras.GetBoolean("MINING"))
+                        {
+                            // Spawn break particle
+                            p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, (breakingTime / 1000), 0, true, true, true, true, true));
+                            p.Send(Packet.SpawnEffect(200, px, py, pz, px, py, pz));
+                            p.Extras["MINING"] = true;
                         }
                     }
                 }
 
-                // Chests WIP
-
-                /*else if (button == MouseButton.Right)
+                else if (action == MouseAction.Released)
                 {
-                    if (action == MouseAction.Released)
+                    p.Extras["HOLDING_TIME"] = 0;
+                    p.Extras["MINING"] = false;
+                    p.Extras["MINING_COORDS"] = 0;
+
+                    if (Config.UseGoodlyEffects)
                     {
-                        if (name.StartsWith("Chest-"))
-                        {
-                            BlockID holding = p.GetHeldBlock();
-                            AddChest(p, x, y, z, holding);
-                        }
+                        // Despawn break particle
+                        p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
                     }
                 }
-
-                else if (button == MouseButton.Middle)
-                {
-                    if (action == MouseAction.Released)
-                    {
-                        if (name.StartsWith("Chest-"))
-                        {
-                            OpenChest(p, x, y, z);
-                        }
-                    }
-                }*/
             }
+
+            // Chests WIP
+
+            /*else if (button == MouseButton.Right)
+            {
+                if (action == MouseAction.Released)
+                {
+                    if (name.StartsWith("Chest-"))
+                    {
+                        BlockID holding = p.GetHeldBlock();
+                        AddChest(p, x, y, z, holding);
+                    }
+                }
+            }
+
+            else if (button == MouseButton.Middle)
+            {
+                if (action == MouseAction.Released)
+                {
+                    if (name.StartsWith("Chest-"))
+                    {
+                        OpenChest(p, x, y, z);
+                    }
+                }
+            }*/
         }
 
         #endregion
@@ -1828,47 +1935,6 @@ namespace MCGalaxy
             return false;
         }
 
-        string getBlockStats(string block)
-        {
-            for (int i = 0; i < 255; i++)
-            {
-                if (blocks[i, 0] == null) continue;
-
-                if (blocks[i, 0] == block)
-                {
-                    return blocks[i, 0] + " " + blocks[i, 1] + " " + blocks[i, 2];
-                }
-            }
-            return "0 1 0";
-        }
-
-        void loadBlocks()
-        {
-            if (File.Exists(Config.Path + "blocks.txt"))
-            {
-                using (var r = new StreamReader(Config.Path + "blocks.txt"))
-                {
-                    string line;
-                    while ((line = r.ReadLine()) != null)
-                    {
-                        string[] blockStats = line.Split(';');
-                        for (int i = 0; i < 255; i++)
-                        {
-                            if (blocks[i, 0] == null)
-                            {
-                                blocks[i, 0] = blockStats[0];
-                                blocks[i, 1] = blockStats[1];
-                                blocks[i, 2] = blockStats[2];
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            else File.Create(Config.Path + "blocks.txt").Dispose();
-        }
-
         #endregion
 
         #region Recipes
@@ -1914,67 +1980,6 @@ namespace MCGalaxy
             }
 
             else File.Create(Config.Path + "recipes.txt").Dispose();
-        }
-
-        #endregion
-
-        #region Tools
-
-        bool hasTool(string world, Player p, string tool)
-        {
-            string filepath = Config.Path + "tools/" + world + "/" + p.truename + ".txt";
-            if (File.Exists(filepath))
-            {
-                using (var r = new StreamReader(filepath))
-                {
-                    string line;
-                    while ((line = r.ReadLine()) != null)
-                    {
-                        if (line == tool) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        string getToolStats(string tool)
-        {
-            for (int i = 0; i < 255; i++)
-            {
-                if (tools[i, 0] == tool)
-                {
-                    return tools[i, 0] + " " + tools[i, 1] + " " + tools[i, 2] + " " + tools[i, 3];
-                }
-            }
-            return "0 1 0 0";
-        }
-
-        void loadTools()
-        {
-            if (File.Exists(Config.Path + "tools.txt"))
-            {
-                using (var r = new StreamReader(Config.Path + "tools.txt"))
-                {
-                    string line;
-                    while ((line = r.ReadLine()) != null)
-                    {
-                        string[] toolStats = line.Split(';');
-                        for (int i = 0; i < 255; i++)
-                        {
-                            if (tools[i, 0] == null)
-                            {
-                                tools[i, 0] = toolStats[0];
-                                tools[i, 1] = toolStats[1];
-                                tools[i, 2] = toolStats[2];
-                                tools[i, 3] = toolStats[3];
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            else File.Create(Config.Path + "tools.txt").Dispose();
         }
 
         #endregion
@@ -2334,10 +2339,6 @@ namespace MCGalaxy
 
             int index;
             BlockID block = lvl.GetBlock(x, y, z, out index);
-
-            //args.Value2 = 0;
-
-            // Console.WriteLine(x + " " + y + " " + z + " " + current.ToString());
 
             switch (block)
             {
@@ -3204,29 +3205,20 @@ namespace MCGalaxy
                 p.Message("You need to specify the speed that the weapon mines at. E.g, '1' for normal speed, '2' for 2x speed.");
                 return;
             }
+
             if (args.Length == 3)
             {
                 p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
                 return;
             }
+
             if (args.Length == 4)
             {
                 p.Message("%H[type] can be either 0 for none, 1 for axe, 2 for pickaxe, 3 for sword or 4 for shovel.");
                 return;
             }
 
-            for (int i = 0; i < 255; i++)
-            {
-                if (PvP.tools[i, 0] == null)
-                {
-                    PvP.tools[i, 0] = args[1];
-                    PvP.tools[i, 1] = args[2];
-                    PvP.tools[i, 2] = args[3];
-                    PvP.tools[i, 3] = args[4];
-                    createTool(args[1], args[2], args[3], args[4]);
-                    break;
-                }
-            }
+            // TODO: Add tool
         }
 
         void createTool(string id, string damage, string durability, string type)
@@ -3340,17 +3332,7 @@ namespace MCGalaxy
                 return;
             }
 
-            for (int i = 0; i < 255; i++)
-            {
-                if (PvP.blocks[i, 0] == null)
-                {
-                    PvP.blocks[i, 0] = args[1];
-                    PvP.blocks[i, 1] = args[2];
-                    PvP.blocks[i, 2] = args[3];
-                    createBlock(args[1], args[2], args[3]);
-                    break;
-                }
-            }
+            // TODO: Add blocks
         }
 
         void createBlock(string id, string tool, string durability)
