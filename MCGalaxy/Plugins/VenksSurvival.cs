@@ -348,21 +348,21 @@ namespace MCGalaxy
             public string Name { get; set; }
             public float Hardness { get; set; }
             public int Tool { get; set; }
-            public float DefaultEfficiency { get; set; }
-            public float WoodEfficiency { get; set; }
-            public float StoneEfficiency { get; set; }
-            public float IronEfficiency { get; set; }
+            public float DefaultSpeed { get; set; }
+            public float WoodenSpeed { get; set; }
+            public float StoneSpeed { get; set; }
+            public float IronSpeed { get; set; }
 
             // Constructor
-            public VenkBlock(string name, float hardness, int tool, float defaultEfficiency, float woodEfficiency, float stoneEfficiency, float ironEfficiency)
+            public VenkBlock(string name, float hardness, int tool, float defaultSpeed, float woodenSpeed, float stoneSpeed, float ironSpeed)
             {
                 Name = name;
                 Hardness = hardness;
                 Tool = tool;
-                DefaultEfficiency = defaultEfficiency;
-                WoodEfficiency = woodEfficiency;
-                StoneEfficiency = stoneEfficiency;
-                IronEfficiency = ironEfficiency;
+                DefaultSpeed = defaultSpeed;
+                WoodenSpeed = woodenSpeed;
+                StoneSpeed = stoneSpeed;
+                IronSpeed = ironSpeed;
             }
         }
 
@@ -388,10 +388,10 @@ namespace MCGalaxy
                             data[0], // ID
                             float.Parse(data[1]), // Hardness
                             int.Parse(data[2]), // Optimal tool type
-                            float.Parse(data[3]), // Default efficiency
-                            float.Parse(data[4]), // Wood efficiency
-                            float.Parse(data[5]), // Stone efficiency
-                            float.Parse(data[6]) // Iron efficiency
+                            float.Parse(data[3]), // Default speed
+                            float.Parse(data[4]), // Wooden speed
+                            float.Parse(data[5]), // Stone speed
+                            float.Parse(data[6]) // Iron speed
                         );
 
                         blocks[block.Name] = block; // Add block to the dictionary using the name as the key
@@ -1211,9 +1211,9 @@ namespace MCGalaxy
             }
         }
 
-        float CalculateBreakingTime(bool isBestTool, float toolMultiplier, bool canHarvest, bool toolEfficiency, int efficiencyLevel, bool hasteEffect, int hasteLevel, bool miningFatigue, int miningFatigueLevel, bool inWater, bool hasAquaAffinity, bool onGround, float blockHardness)
+        float CalculateBreakingTime(bool isBestTool, float defaultSpeed, float toolMultiplier, bool canHarvest, bool toolEfficiency, int efficiencyLevel, bool hasteEffect, int hasteLevel, bool miningFatigue, int miningFatigueLevel, bool inWater, bool hasAquaAffinity, bool onGround, float blockHardness)
         {
-            float speedMultiplier = 1;
+            float speedMultiplier = defaultSpeed;
 
             if (isBestTool)
             {
@@ -1310,6 +1310,19 @@ namespace MCGalaxy
             }
 
             return matchingBlock.Value;
+        }
+
+        public Tool GetToolByName(string name)
+        {
+            // Case-insensitive search for the tool name
+            KeyValuePair<string, Tool> matchingTool = tools.FirstOrDefault(kv => kv.Key.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingTool.Equals(default(KeyValuePair<string, Tool>)))
+            {
+                return null;
+            }
+
+            return matchingTool.Value;
         }
 
         void HandleBlockClick(Player p, MouseButton button, MouseAction action, ushort yaw, ushort pitch, byte entity, ushort x, ushort y, ushort z, TargetBlockFace face)
@@ -1422,8 +1435,6 @@ namespace MCGalaxy
                     // The client's click speed is ~4 times/second
                     TimeSpan duration = TimeSpan.FromSeconds(heldFor / 4.0);
 
-                    float baseLifetime = 1f;
-
                     // Position particle towards respective block face
 
                     if (face == TargetBlockFace.AwayX) px += 0.5625f;
@@ -1443,12 +1454,22 @@ namespace MCGalaxy
                         return;
                     }
 
+                    VenkBlock blockInfo = GetBlockByName(name);
+
+                    if (blockInfo == null)
+                    {
+                        MineBlock(p, x, y, z, clickedBlock, name);
+                        return;
+                    }
+
                     // Placeholder properties used to calculate the breaking speed of the block
 
+                    float blockHardness = blockInfo.Hardness;
+                    float defaultSpeed = (blockHardness + 1f) / blockInfo.DefaultSpeed; // For some reason, times don't match. This is probably due to the difference in clicking speeds in both clients.
+                    float toolMultiplier = 1f;
+
                     bool isBestTool = false;
-                    float toolMultiplier = 1.0f;
                     bool canHarvest = true;
-                    float blockHardness = 10.0f;
 
                     bool toolEfficiency = false; // TODO
                     int efficiencyLevel = 0; // TODO
@@ -1460,36 +1481,23 @@ namespace MCGalaxy
                     bool hasAquaAffinity = false; // TODO
                     bool onGround = true; // TODO
 
-                    VenkBlock blockInfo = GetBlockByName(name);
-
-                    if (blockInfo == null)
-                    {
-                        MineBlock(p, x, y, z, clickedBlock, name);
-                        return;
-                    }
-
-                    blockHardness = blockInfo.Hardness;
-
-                    if (name.ToLower().StartsWith("wood")) toolMultiplier = 2f;
-                    else if (name.ToLower().StartsWith("stone")) toolMultiplier = 4f;
-                    else if (name.ToLower().StartsWith("iron")) toolMultiplier = 6f;
+                    if (held.ToLower().StartsWith("wood")) toolMultiplier = (blockHardness + 1f) / blockInfo.WoodenSpeed;
+                    else if (held.ToLower().StartsWith("stone")) toolMultiplier = (blockHardness + 1f) / blockInfo.StoneSpeed;
+                    else if (held.ToLower().StartsWith("iron")) toolMultiplier = (blockHardness + 1f) / blockInfo.IronSpeed;
 
                     // Check if player is holding a tool and if so, check if it is in their inventory
 
                     if (tools.ContainsKey(held) && HasBlock(p, b))
                     {
-
+                        Tool toolInfo = GetToolByName(held);
+                        if (toolInfo.Type == blockInfo.Tool) isBestTool = true; // Check if the tool is the correct type for this block
                     }
 
-                    // Check if the player has got the tool in their inventory
+                    // TODO: Check if the player is in the air
 
-                    // Check if the tool is the correct type
+                    // TODO: Check if they are in water
 
-                    // Check if the player is in the air
-
-                    // Check if they are in water
-
-                    float breakingTime = CalculateBreakingTime(isBestTool, toolMultiplier, canHarvest, toolEfficiency, efficiencyLevel, hasteEffect, hasteLevel, miningFatigue, miningFatigueLevel, inWater, hasAquaAffinity, onGround, blockHardness);
+                    float breakingTime = CalculateBreakingTime(isBestTool, defaultSpeed, toolMultiplier, canHarvest, toolEfficiency, efficiencyLevel, hasteEffect, hasteLevel, miningFatigue, miningFatigueLevel, inWater, hasAquaAffinity, onGround, blockHardness);
 
                     breakingTime *= 1000; // s > ms
 
