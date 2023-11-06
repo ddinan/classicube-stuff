@@ -1424,7 +1424,7 @@ namespace MCGalaxy
                         if (Config.UseGoodlyEffects)
                         {
                             // Despawn break particle
-                            p.Send(Packet.DefineEffect(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
+                            p.Send(Packet.DefineEffect(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000, 0, 0, false, false, false, false, false));
                         }
 
                         return;
@@ -1504,20 +1504,23 @@ namespace MCGalaxy
                     if (duration > TimeSpan.FromMilliseconds(breakingTime))
                     {
                         MineBlock(p, x, y, z, b, name);
+                        p.Extras["HOLDING_TIME"] = 0;
+                        p.Extras["MINING"] = false;
                         return;
                     }
 
                     p.Extras["HOLDING_TIME"] = heldFor + 1;
 
-                    if (Config.UseGoodlyEffects)
+                    if (!p.Extras.GetBoolean("MINING"))
                     {
-                        if (!p.Extras.GetBoolean("MINING"))
+                        if (Config.UseGoodlyEffects)
                         {
                             // Spawn break particle
                             p.Send(Packet.DefineEffect(200, 0, 105, 15, 120, 255, 255, 255, 10, 1, 28, 0, 0, 0, 0, (breakingTime / 1000), 0, true, true, true, true, true));
                             p.Send(Packet.SpawnEffect(200, px, py, pz, px, py, pz));
-                            p.Extras["MINING"] = true;
                         }
+
+                        p.Extras["MINING"] = true;
                     }
                 }
 
