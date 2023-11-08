@@ -14,9 +14,6 @@
   3. Type /pload PvP.
   4. Type /pvp add [name of map].
   
-  IF YOU WANT WEAPONS (DO THIS FOR EACH WEAPON):
-  1. Type /weapon add [id] [damage] [durability].
-  
   IF YOU WANT TOOLS (DO THIS FOR EACH TOOL):
   1. Type /tool add [id] [speed] [durability] [type].
   
@@ -212,10 +209,7 @@ namespace MCGalaxy
         public static Config cfg = new Config();
 
         public static List<string> maplist = new List<string>();
-        //public static string[,] blocks = new string[255, 3];
         public static string[,] recipes = new string[255, 2];
-        //public static string[,] tools = new string[255, 4];
-        public static string[,] weapons = new string[255, 3];
 
         public Dictionary<string, VenkBlock> blocks;
         public Dictionary<string, Tool> tools;
@@ -242,7 +236,6 @@ namespace MCGalaxy
 
             loadMaps();
             loadRecipes();
-            loadWeapons();
             initDB();
 
             // Register events
@@ -279,7 +272,6 @@ namespace MCGalaxy
             Command.Register(new CmdPvP());
             Command.Register(new CmdRecipes());
             Command.Register(new CmdSafeZone());
-            Command.Register(new CmdWeapon());
             Command.Register(new CmdTool());
             Command.Register(new CmdBlock());
             Command.Register(new CmdPotion());
@@ -339,7 +331,6 @@ namespace MCGalaxy
         {
             Directory.CreateDirectory("./plugins/VenksSurvival");
             Directory.CreateDirectory("./plugins/VenksSurvival/tools/");
-            Directory.CreateDirectory("./plugins/VenksSurvival/weapons/");
         }
 
         public class VenkBlock
@@ -413,13 +404,15 @@ namespace MCGalaxy
             public string Name { get; set; }
             public float Durability { get; set; }
             public int Type { get; set; }
+            public int Damage { get; set; }
 
             // Constructor
-            public Tool(string name, float durability, int type)
+            public Tool(string name, float durability, int type, int damage)
             {
                 Name = name;
                 Durability = durability;
                 Type = type;
+                Damage = damage;
             }
         }
 
@@ -439,12 +432,13 @@ namespace MCGalaxy
 
                     string[] data = line.Split(';');
 
-                    if (data.Length == 3) // Assuming there are 8 properties in the file
+                    if (data.Length == 4) // Assuming there are 8 properties in the file
                     {
                         Tool tool = new Tool(
                             data[0], // ID
                             float.Parse(data[1]), // Durability
-                            int.Parse(data[2]) // Optimal block type
+                            int.Parse(data[2]), // Optimal block type
+                            int.Parse(data[3]) // Amount of damage inflicted
                         );
 
                         tools[tool.Name] = tool; // Add tool to the dictionary using the name as the key
@@ -1759,8 +1753,6 @@ namespace MCGalaxy
             }
 
             BlockID b = p.GetHeldBlock();
-            string[] weaponstats = getWeaponStats((byte)b + "").Split(' ');
-            if (!hasWeapon(p.level.name, p, Block.GetName(p, b)) && weaponstats[0] != "0") return false;
 
             if (Block.GetName(p, b).ToLower() == "bow") return false; // Bow damage comes from arrows, not player click
 
@@ -1806,6 +1798,19 @@ namespace MCGalaxy
 
             // TODO: Weapons
             int damage = 1;
+
+            BlockID block = p.GetHeldBlock();
+            string held = Block.GetName(p, block);
+
+            // If the player is holding a tool and that tool is in their inventory, set damage to the tool's damage
+            if (tools.ContainsKey(held) && HasBlock(p, block))
+            {
+                Tool toolInfo = GetToolByName(held);
+                if (toolInfo == null) return;
+
+                damage = toolInfo.Damage;
+            }
+
             if (!p.level.Config.MOTD.CaselessContains("-damage")) DoDamage(victim, damage, "pvp", p);
         }
 
@@ -1991,66 +1996,6 @@ namespace MCGalaxy
             }
 
             else File.Create(Config.Path + "recipes.txt").Dispose();
-        }
-
-        #endregion
-
-        #region Weapons
-
-        public static bool hasWeapon(string world, Player p, string weapon)
-        {
-            string filepath = Config.Path + "weapons/" + world + "/" + p.truename + ".txt";
-            if (File.Exists(filepath))
-            {
-                using (var r = new StreamReader(filepath))
-                {
-                    string line;
-                    while ((line = r.ReadLine()) != null)
-                    {
-                        if (line == weapon) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        public static string getWeaponStats(string weapon)
-        {
-            for (int i = 0; i < 255; i++)
-            {
-                if (weapons[i, 0] == weapon)
-                {
-                    return weapons[i, 0] + " " + weapons[i, 1] + " " + weapons[i, 2];
-                }
-            }
-            return "0 1 0";
-        }
-
-        void loadWeapons()
-        {
-            if (File.Exists(Config.Path + "weapons.txt"))
-            {
-                using (var r = new StreamReader(Config.Path + "weapons.txt"))
-                {
-                    string line;
-                    while ((line = r.ReadLine()) != null)
-                    {
-                        string[] weaponStats = line.Split(';');
-                        for (int i = 0; i < 255; i++)
-                        {
-                            if (weapons[i, 0] == null)
-                            {
-                                weapons[i, 0] = weaponStats[0];
-                                weapons[i, 1] = weaponStats[1];
-                                weapons[i, 2] = weaponStats[2];
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            else File.Create(Config.Path + "weapons.txt").Dispose();
         }
 
         #endregion
@@ -2896,7 +2841,7 @@ namespace MCGalaxy
         void HandleAll(Player p)
         {
             p.Message("%7All items:");
-            p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
+            p.Message("%7syntax: %3[item]:[# produced] %2[ingredients]:[# required]");
 
             for (int i = 0; i < PvP.recipes.GetLength(0); i++)
             {
@@ -2918,7 +2863,7 @@ namespace MCGalaxy
             List<string[]> pRows = Database.GetRows("Inventories4", "*", "WHERE Name=@0 AND Level=@1", p.truename, p.level.name);
 
             p.Message("%7Craftable items:");
-            p.Message("%3[item]:[# produced] %2[ingredients]:[# required]");
+            p.Message("%7syntax: %3[item]:[# produced] %2[ingredients]:[# required]");
 
             for (int i = 0; i < PvP.recipes.GetLength(0); i++)
             {
@@ -3029,142 +2974,6 @@ namespace MCGalaxy
         {
             p.Message("%T/SafeZone [add] %H- Adds a safe zone to the current PvP map.");
             //p.Message("%T/SafeZone [del] %H- Removes a safe zone from the current PvP map.");
-        }
-    }
-
-    public sealed class CmdWeapon : Command2
-    {
-        public override string name { get { return "Weapon"; } }
-        public override string type { get { return CommandTypes.Games; } }
-        public override bool museumUsable { get { return false; } }
-        public override LevelPermission defaultRank { get { return LevelPermission.Admin; } }
-        public override bool SuperUseable { get { return false; } }
-        public override CommandPerm[] ExtraPerms { get { return new[] { new CommandPerm(LevelPermission.Admin, "can manage weapons") }; } }
-
-        public override void Use(Player p, string message, CommandData data)
-        {
-            if (message.Length == 0)
-            {
-                Help(p);
-                return;
-            }
-            string[] args = message.SplitSpaces(4);
-
-            switch (args[0].ToLower())
-            {
-                case "add":
-                    HandleAdd(p, args);
-                    return;
-                case "give":
-                    HandleGive(p, args);
-                    return;
-                case "take":
-                    HandleTake(p, args);
-                    return;
-            }
-        }
-
-        void HandleAdd(Player p, string[] args)
-        {
-            if (args.Length == 1)
-            {
-                p.Message("You need to specify an ID for the block. E.g, '1' for stone.");
-                return;
-            }
-            if (args.Length == 2)
-            {
-                p.Message("You need to specify the damage that the weapon does. E.g, '1' for half a heart.");
-                return;
-            }
-            if (args.Length == 3)
-            {
-                p.Message("You need to specify how many clicks before it breaks. 0 for infinite clicks.");
-                return;
-            }
-
-            for (int i = 0; i < 255; i++)
-            {
-                if (PvP.weapons[i, 0] == null)
-                {
-                    PvP.weapons[i, 0] = args[1];
-                    PvP.weapons[i, 1] = args[2];
-                    PvP.weapons[i, 2] = args[3];
-                    createWeapon(args[1], args[2], args[3]);
-                    break;
-                }
-            }
-
-            p.Message("Created weapon with ID %b" + args[1] + "%S, damage %b" + args[2] + "%S and durability %b" + args[3] + "%S.");
-        }
-
-        void createWeapon(string id, string damage, string durability)
-        {
-            FileInfo filedir = new FileInfo(PvP.Config.Path + "weapons.txt");
-            filedir.Directory.Create();
-
-            using (StreamWriter file = new StreamWriter(PvP.Config.Path + "weapons.txt", true))
-            {
-                file.WriteLine(id + ";" + damage + ";" + durability);
-            }
-        }
-
-        void HandleGive(Player p, string[] args)
-        {
-            if (args[1] != PvP.Config.SecretCode) return;
-
-            if (args.Length == 2)
-            {
-                p.Message("You need to specify the ID of the weapon.");
-                return;
-            }
-
-            if (args.Length == 3)
-            {
-                p.Message("You need to specify a username to give the weapon to.");
-                return;
-            }
-
-            Player who = PlayerInfo.FindExact(args[3]);
-            if (who == null) return;
-
-            who.Extras["PVP_UNLOCKED_" + args[2]] = true;
-
-            who.Message("%eYou unlocked a weapon: %b" + args[2]);
-
-            p.Message("Weapon given.");
-        }
-
-        void HandleTake(Player p, string[] args)
-        {
-            if (args[1] != PvP.Config.SecretCode) return;
-
-            if (args.Length == 2)
-            {
-                p.Message("You need to specify the ID of the weapon.");
-                return;
-            }
-
-            if (args.Length == 3)
-            {
-                p.Message("You need to specify a username to take the weapon from.");
-                return;
-            }
-
-            Player who = PlayerInfo.FindExact(args[3]);
-            if (who == null) return;
-
-            who.Extras["PVP_UNLOCKED_" + args[2]] = false;
-
-            p.Message("Weapon taken.");
-            who.Message("%eYour lost your weapon: %b" + args[2]);
-        }
-
-        public override void Help(Player p)
-        {
-            p.Message("%T/Weapon add [id] [damage] [durability] %H- Adds a weapon to the current PvP map.");
-            p.Message("%T/Weapon del %H- Removes a weapon current PvP map.");
-            p.Message("%T/Weapon give [player] [world] [weapon] %H- Gives a player a weapon.");
-            p.Message("%T/Weapon take [player] [world] %H- Takes all weapons from a player away.");
         }
     }
 
