@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 
 using MCGalaxy;
@@ -70,7 +70,7 @@ namespace MCGalaxy
             if (pl.Session.Ping.AveragePing() > 0 && pl.Session.Ping.AveragePing() < 50) pingColor = "&a";
             if (pl.Session.Ping.AveragePing() >= 50 && pl.Session.Ping.AveragePing() < 100) pingColor = "&e";
             if (pl.Session.Ping.AveragePing() > 100 && pl.Session.Ping.AveragePing() < 200) pingColor = "&6";
-            if (pl.Session.Ping.AveragePing() >= 200) pingColor = "&c"
+            if (pl.Session.Ping.AveragePing() >= 200) pingColor = "&c";
 
             name = Config.Syntax
                 .Replace("[nick]", pl.ColoredName)
@@ -83,7 +83,7 @@ namespace MCGalaxy
                 .Replace("[teamcolor]", pl.Game.Team != null ? pl.Game.Team.Color : "")
                 .Replace("[muted]", pl.muted ? "(muted)" : "")
                 .Replace("[afk]", pl.IsAfk ? "(afk)" : "")
-                .Replace("[ping]", pl.Session.Ping.AveragePing())
+                .Replace("[ping]", pl.Session.Ping.AveragePing().ToString())
                 .Replace("[pingcolor]", pingColor);
         }
 
