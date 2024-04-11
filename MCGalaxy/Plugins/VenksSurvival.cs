@@ -672,28 +672,17 @@ namespace MCGalaxy
 
         public static string GetHealthBar(int health)
         {
-            if (health == 20) return "%f♥♥♥♥♥♥♥♥♥♥";
-            if (health == 19) return "%f♥♥♥♥♥♥♥♥♥╫";
-            if (health == 18) return "%f♥♥♥♥♥♥♥♥♥%0♥";
-            if (health == 17) return "%f♥♥♥♥♥♥♥♥╫%0♥";
-            if (health == 16) return "%f♥♥♥♥♥♥♥♥%0♥♥";
-            if (health == 15) return "%f♥♥♥♥♥♥♥╫%0♥♥";
-            if (health == 14) return "%f♥♥♥♥♥♥♥%0♥♥♥";
-            if (health == 13) return "%f♥♥♥♥♥♥╫%0♥♥♥";
-            if (health == 12) return "%f♥♥♥♥♥♥%0♥♥♥♥";
-            if (health == 11) return "%f♥♥♥♥♥╫%0♥♥♥♥";
-            if (health == 10) return "%f♥♥♥♥♥%0♥♥♥♥♥";
-            if (health == 9) return "%f♥♥♥♥╫%0♥♥♥♥♥";
-            if (health == 8) return "%f♥♥♥♥%0♥♥♥♥♥♥";
-            if (health == 7) return "%f♥♥♥╫%0♥♥♥♥♥♥";
-            if (health == 6) return "%f♥♥♥%0♥♥♥♥♥♥♥";
-            if (health == 5) return "%f♥♥╫%0♥♥♥♥♥♥♥";
-            if (health == 4) return "%f♥♥%0♥♥♥♥♥♥♥♥";
-            if (health == 3) return "%f♥╫%0♥♥♥♥♥♥♥♥";
-            if (health == 2) return "%f♥%0♥♥♥♥♥♥♥♥♥";
-            if (health == 1) return "%f╫%0♥♥♥♥♥♥♥♥♥";
-            if (health == 0) return "%0♥♥♥♥♥♥♥♥♥♥";
-            return "";
+            if (health < 0)
+      			{
+      				health = 0;
+      			}
+      
+      			int repeatHealth = (int)Math.Round(( (float) health / (float)Config.MaxHealth) * 10f);
+      
+      			int repeatDepletedHealth = 10 - repeatHealth;
+      
+      
+      			return ("%c" + new string('♥', repeatHealth )) + "%8" + new string('♥', repeatDepletedHealth );
         }
 
         public static void DoDamage(Player p, int damage, string type, Player killer)
