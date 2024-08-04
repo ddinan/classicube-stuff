@@ -3,9 +3,9 @@ using MCGalaxy.Generator;
 
 namespace MCGalaxy
 {
-    public class CustomWorldGen : Plugin
+    public class CustomWorldGenExample : Plugin
     {
-        public override string name { get { return "CustomWorldGen"; } }
+        public override string name { get { return "CustomWorldGenExample"; } }
         public override string MCGalaxy_Version { get { return "1.9.4.1"; } }
         public override string creator { get { return "Venk"; } }
 
