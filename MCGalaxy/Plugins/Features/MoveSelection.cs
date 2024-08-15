@@ -37,8 +37,8 @@ namespace MCGalaxy
 					of just typing it into the chat box. */
                 p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection north◙", 72, 0, true)); // NUM_PAD_8.
                 p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection east◙", 77, 0, true)); // NUM_PAD_6.
-                p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection south◙", 80, 0, true)); // NUM_PAD_4.
-                p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection west◙", 75, 0, true)); // NUM_PAD_2.
+                p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection south◙", 80, 0, true)); // NUM_PAD_2.
+                p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection west◙", 75, 0, true)); // NUM_PAD_4.
                 p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection up◙", 78, 0, true)); // NUM_PAD_PLUS.
                 p.Send(Packet.TextHotKey("MoveSelection", "/MoveSelection down◙", 74, 0, true)); // NUM_PAD_MINUS.
             }
